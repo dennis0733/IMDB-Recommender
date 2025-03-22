@@ -6,11 +6,15 @@ import logging
 import time
 import sys
 
-# Load environment variables
-load_dotenv(dotenv_path="..\\data\\.env")
+# Add the current directory and parent directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(current_dir)
+sys.path.append(parent_dir)
 
-# Add the parent directory to sys.path to allow imports from src
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Load environment variables - using a cross-platform path
+env_path = os.path.join(parent_dir, "data", ".env")
+load_dotenv(dotenv_path=env_path)
 
 # Import the JSONDatabase to initialize it at startup
 from src.data.json_database import JSONDatabase
@@ -20,12 +24,12 @@ def create_app():
     
     # Configure app
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
-    app.config['MODEL_PATH'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+    app.config['MODEL_PATH'] = os.path.join(parent_dir, 'models')
     
     # Preload the database at startup
     start_time = time.time()
     print("Preloading database...")
-    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "processed")
+    data_dir = os.path.join(parent_dir, "data", "processed")
     db = JSONDatabase(data_dir=data_dir)
     end_time = time.time()
     print(f"Database loaded in {end_time - start_time:.2f} seconds")
@@ -36,9 +40,9 @@ def create_app():
         file_handler.setLevel(logging.ERROR)
         app.logger.addHandler(file_handler)
     
-    # Register blueprints
-    from routes.analysis import analysis_bp
-    from routes.recommender import recommender_bp
+    # Explicitly import the routes from web.routes (using the full path)
+    from web.routes.analysis import analysis_bp
+    from web.routes.recommender import recommender_bp
     
     app.register_blueprint(analysis_bp)
     app.register_blueprint(recommender_bp)
