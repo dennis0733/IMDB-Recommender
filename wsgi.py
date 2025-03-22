@@ -1,10 +1,13 @@
 import os
 import sys
 
-# Add the current directory to Python path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Get the absolute path to the project root
+project_root = os.path.dirname(os.path.abspath(__file__))
 
-# Import the app factory function
+# Add project root and web directory to Python path
+sys.path.append(project_root)
+
+# Import the app factory function from the web folder
 from web.app import create_app
 
 # Create the application
