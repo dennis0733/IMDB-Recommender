@@ -36,6 +36,7 @@ ENV/
 *.pkl
 *.h5
 /data/raw_data/
+data/processed/*.json
 /data/external/
 
 # Model files
