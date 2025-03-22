@@ -3,9 +3,17 @@ from flask import Flask, render_template, request
 from dotenv import load_dotenv
 import os
 import logging
+import time
+import sys
 
 # Load environment variables
 load_dotenv(dotenv_path="..\\data\\.env")
+
+# Add the parent directory to sys.path to allow imports from src
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import the JSONDatabase to initialize it at startup
+from src.data.json_database import JSONDatabase
 
 def create_app():
     app = Flask(__name__)
@@ -13,6 +21,14 @@ def create_app():
     # Configure app
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
     app.config['MODEL_PATH'] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'models')
+    
+    # Preload the database at startup
+    start_time = time.time()
+    print("Preloading database...")
+    data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "processed")
+    db = JSONDatabase(data_dir=data_dir)
+    end_time = time.time()
+    print(f"Database loaded in {end_time - start_time:.2f} seconds")
     
     # Configure logging
     if not app.debug:

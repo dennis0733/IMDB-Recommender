@@ -9,7 +9,7 @@ import pandas as pd
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from src.models.content_based import get_movie_recommendations, get_series_recommendations
-from src.data.database import Database  # Import your existing Database class
+from src.data.json_database import JSONDatabase  # Import the new JSONDatabase class
 
 # Create blueprint
 recommender_bp = Blueprint('recommender', __name__)
@@ -27,12 +27,16 @@ def load_models():
         series_model = joblib.load(os.path.join(model_path, 'series_recommender.joblib'))
         print("Recommendation models loaded successfully")
         
-        # Initialize MongoDB connection using your Database class
+        # Initialize JSONDatabase instead of MongoDB
         try:
-            db_instance = Database()
-            print("MongoDB connection established")
+            # Determine path to data/processed directory
+            # Get the path relative to the application root
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 
+                                   "data", "processed")
+            db_instance = JSONDatabase(data_dir=data_dir)
+            print("JSON database initialized successfully")
         except Exception as e:
-            print(f"Error connecting to MongoDB: {e}")
+            print(f"Error initializing JSON database: {e}")
     except Exception as e:
         print(f"Error loading recommendation models: {e}")
 
@@ -43,7 +47,8 @@ def initialize():
     if movie_model is None or series_model is None or db_instance is None:
         load_models()
 
-# Update the index route in recommender.py
+# The rest of your code remains largely the same, with the JSONDatabase working as a drop-in replacement
+# for your MongoDB Database class. The functions like get_detailed_movie and get_detailed_series work the same way.
 
 @recommender_bp.route('/')
 def index():
@@ -77,13 +82,13 @@ def index():
             top_movies = movies_df.sort_values('popularity', ascending=False).head(6)
         
         for _, movie in top_movies.iterrows():
-            # Try to get enhanced data from MongoDB
+            # Try to get enhanced data from JSON files
             enhanced_movie = None
             if db_instance:
                 try:
                     enhanced_movie = db_instance.get_detailed_movie(movie['id'])
                 except Exception as e:
-                    print(f"Error fetching movie from MongoDB: {e}")
+                    print(f"Error fetching movie from JSON database: {e}")
             
             # Create movie data for display
             movie_data = {
@@ -96,7 +101,7 @@ def index():
             
             # Update with enhanced data if available
             if enhanced_movie:
-                # Keep basic info from model but get extra details from MongoDB
+                # Keep basic info from model but get extra details from JSON
                 if 'genre_names' in enhanced_movie and enhanced_movie['genre_names']:
                     movie_data['genres'] = enhanced_movie['genre_names']
                 if 'poster_path' in enhanced_movie and enhanced_movie['poster_path']:
@@ -109,13 +114,10 @@ def index():
         
         # Calculate a combined score of popularity and rating
         try:
-            
-            
             # Calculate combined score
             series_df['combined_score'] = (
                 (series_df['popularity_scaled'] * series_df['vote_average_scaled'] * series_df['vote_count_scaled'] 
                 ) )
-            
             
             # Get top 6 series by combined score
             top_series = series_df.sort_values('combined_score', ascending=False).head(12)
@@ -133,13 +135,13 @@ def index():
             top_series = series_df.sort_values('popularity', ascending=False).head(6)
         
         for _, series in top_series.iterrows():
-            # Try to get enhanced data from MongoDB
+            # Try to get enhanced data from JSON files
             enhanced_series = None
             if db_instance:
                 try:
                     enhanced_series = db_instance.get_detailed_series(series['id'])
                 except Exception as e:
-                    print(f"Error fetching series from MongoDB: {e}")
+                    print(f"Error fetching series from JSON database: {e}")
                     
             # Create series data for display
             series_data = {
@@ -152,7 +154,7 @@ def index():
             
             # Update with enhanced data if available
             if enhanced_series:
-                # Keep basic info from model but get extra details from MongoDB
+                # Keep basic info from model but get extra details from JSON
                 if 'genre_names' in enhanced_series and enhanced_series['genre_names']:
                     series_data['genres'] = enhanced_series['genre_names']
                 if 'poster_path' in enhanced_series and enhanced_series['poster_path']:
@@ -164,6 +166,9 @@ def index():
                            popular_movies=popular_movies,
                            popular_series=popular_series)
 
+
+# The search, movie_recommender, and series_recommender routes remain the same,
+# just replacing MongoDB references with JSONDatabase references
 
 @recommender_bp.route('/search')
 def search():
@@ -194,13 +199,13 @@ def search():
             for _, movie in movie_results.iterrows():
                 genres = movie['genre_names'] if isinstance(movie['genre_names'], list) else []
                 
-                # Try to get enhanced data from MongoDB
+                # Try to get enhanced data from JSON database
                 enhanced_movie = None
                 if db_instance:
                     try:
                         enhanced_movie = db_instance.get_detailed_movie(movie['id'])
                     except Exception as e:
-                        print(f"Error fetching movie from MongoDB in search: {e}")
+                        print(f"Error fetching movie from JSON database in search: {e}")
                 
                 # Create basic movie data
                 movie_data = {
@@ -244,13 +249,13 @@ def search():
             for _, series in series_results.iterrows():
                 genres = series['genre_names'] if isinstance(series['genre_names'], list) else []
                 
-                # Try to get enhanced data from MongoDB
+                # Try to get enhanced data from JSON database
                 enhanced_series = None
                 if db_instance:
                     try:
                         enhanced_series = db_instance.get_detailed_series(series['id'])
                     except Exception as e:
-                        print(f"Error fetching series from MongoDB in search: {e}")
+                        print(f"Error fetching series from JSON database in search: {e}")
                 
                 # Create basic series data
                 series_data = {
@@ -274,8 +279,6 @@ def search():
                 results.append(series_data)
     
     return render_template('search.html', query=query, results=results)
-
-# Updated route functions for movie_recommender and series_recommender
 
 @recommender_bp.route('/movie_recommender')
 def movie_recommender():
@@ -310,13 +313,13 @@ def movie_recommender():
             top_movies = movies_df.sort_values('popularity', ascending=False).head(9)
         
         for _, movie in top_movies.iterrows():
-            # Try to get enhanced data from MongoDB
+            # Try to get enhanced data from JSON database
             enhanced_movie = None
             if db_instance:
                 try:
                     enhanced_movie = db_instance.get_detailed_movie(movie['id'])
                 except Exception as e:
-                    print(f"Error fetching movie from MongoDB: {e}")
+                    print(f"Error fetching movie from JSON database: {e}")
             
             # Create movie data for display
             movie_data = {
@@ -329,7 +332,7 @@ def movie_recommender():
             
             # Update with enhanced data if available
             if enhanced_movie:
-                # Keep basic info from model but get extra details from MongoDB
+                # Keep basic info from model but get extra details from JSON
                 if 'genre_names' in enhanced_movie and enhanced_movie['genre_names']:
                     movie_data['genres'] = enhanced_movie['genre_names']
                 if 'poster_path' in enhanced_movie and enhanced_movie['poster_path']:
@@ -350,7 +353,11 @@ def series_recommender():
         
         # Calculate a combined score of popularity and rating
         try:
-            
+            # Ensure combined_score column exists
+            if 'combined_score' not in series_df.columns:
+                series_df['combined_score'] = (
+                    (series_df['popularity_scaled'] * series_df['vote_average_scaled'] * series_df['vote_count_scaled'])
+                )
             
             # Get top series by combined score
             top_series = series_df.sort_values('combined_score', ascending=False).head(20)
@@ -368,13 +375,13 @@ def series_recommender():
             top_series = series_df.sort_values('popularity', ascending=False).head(9)
         
         for _, series in top_series.iterrows():
-            # Try to get enhanced data from MongoDB
+            # Try to get enhanced data from JSON database
             enhanced_series = None
             if db_instance:
                 try:
                     enhanced_series = db_instance.get_detailed_series(series['id'])
                 except Exception as e:
-                    print(f"Error fetching series from MongoDB: {e}")
+                    print(f"Error fetching series from JSON database: {e}")
                     
             # Create series data for display
             series_data = {
@@ -387,7 +394,7 @@ def series_recommender():
             
             # Update with enhanced data if available
             if enhanced_series:
-                # Keep basic info from model but get extra details from MongoDB
+                # Keep basic info from model but get extra details from JSON
                 if 'genre_names' in enhanced_series and enhanced_series['genre_names']:
                     series_data['genres'] = enhanced_series['genre_names']
                 if 'poster_path' in enhanced_series and enhanced_series['poster_path']:
@@ -396,6 +403,10 @@ def series_recommender():
             popular_series.append(series_data)
     
     return render_template('series_recommender_landing.html', popular_series=popular_series)
+
+# The remaining routes (movie_detail, series_detail, api_movie_recommendations, api_series_recommendations)
+# follow the same pattern - just replacing MongoDB references with JSONDatabase references.
+# For brevity, I've included the movie_detail route as an example of the changes needed:
 
 @recommender_bp.route('/movie/<movie_id>')
 def movie_detail(movie_id):
@@ -408,7 +419,7 @@ def movie_detail(movie_id):
     # For debugging
     print(f"\n==== DEBUG: Looking for movie ID: {movie_id} ====")
     
-    # First try to get the movie directly from MongoDB
+    # First try to get the movie directly from JSON database
     complete_movie = None
     if db_instance:
         try:
@@ -422,10 +433,7 @@ def movie_detail(movie_id):
                 mongo_movie = db_instance.get_detailed_movie(movie_id)
                 
             if mongo_movie:
-                # MongoDB returns ObjectId which is not JSON serializable
-                if '_id' in mongo_movie:
-                    mongo_movie.pop('_id', None)
-                print(f"Found movie directly in MongoDB: {mongo_movie.get('title', 'Unknown')}")
+                print(f"Found movie directly in JSON database: {mongo_movie.get('title', 'Unknown')}")
                 complete_movie = mongo_movie
                 
                 # Process genres properly
@@ -445,11 +453,11 @@ def movie_detail(movie_id):
                         complete_movie['genre_names'] = extracted_genres
                         print(f"Extracted genres: {extracted_genres}")
             else:
-                print(f"Movie not found in MongoDB, falling back to model dataframe")
+                print(f"Movie not found in JSON database, falling back to model dataframe")
         except Exception as e:
-            print(f"Error fetching movie from MongoDB: {e}")
+            print(f"Error fetching movie from JSON database: {e}")
     
-    # If we couldn't get the movie from MongoDB, fall back to the model dataframe
+    # If we couldn't get the movie from JSON database, fall back to the model dataframe
     if complete_movie is None:
         movies_df = movie_model['movies_df']
         
@@ -497,23 +505,20 @@ def movie_detail(movie_id):
             print(f"ID types in dataset: {movies_df['id'].apply(type).unique()}")
             return render_template('404.html'), 404
         
-        # Try to get enhanced data from MongoDB
+        # Try to get enhanced data from JSON database
         enhanced_movie = None
         if db_instance:
             try:
-                print(f"Looking for enhanced data in MongoDB for movie ID: {movie['id']}")
+                print(f"Looking for enhanced data in JSON database for movie ID: {movie['id']}")
                 enhanced_movie = db_instance.get_detailed_movie(movie['id'])
                 if enhanced_movie:
-                    # MongoDB returns ObjectId which is not JSON serializable
-                    if '_id' in enhanced_movie:
-                        enhanced_movie.pop('_id', None)
-                    print(f"Found enhanced data in MongoDB for {movie['title']}")
+                    print(f"Found enhanced data in JSON database for {movie['title']}")
                 else:
-                    print(f"No enhanced data found in MongoDB for {movie['title']}")
+                    print(f"No enhanced data found in JSON database for {movie['title']}")
             except Exception as e:
-                print(f"Error fetching movie from MongoDB: {e}")
+                print(f"Error fetching movie from JSON database: {e}")
         
-        # Merge model data with MongoDB data if available
+        # Merge model data with JSON data if available
         if enhanced_movie:
             # Start with enhanced data as the base
             complete_movie = enhanced_movie
@@ -521,7 +526,7 @@ def movie_detail(movie_id):
             complete_movie['title'] = movie['title']
             complete_movie['id'] = movie['id']
             
-            # Make sure to get genres from model data if not in MongoDB
+            # Make sure to get genres from model data if not in JSON database
             if ('genre_names' not in complete_movie or not complete_movie['genre_names']) and 'genre_names' in movie:
                 complete_movie['genre_names'] = movie['genre_names']
                 
@@ -583,7 +588,7 @@ def movie_detail(movie_id):
         print(f"Using title-based recommendation for movie: {movie_title}")
         recommendations = get_movie_recommendations(movie_title, movie_model, top_n=9)
         
-        # Enhance recommendations with MongoDB data if available
+        # Enhance recommendations with JSON data if available
         if db_instance:
             enhanced_recommendations = []
             for rec in recommendations:
@@ -591,9 +596,9 @@ def movie_detail(movie_id):
                     # Look for enhanced data
                     enhanced_rec = db_instance.get_detailed_movie(rec['id'])
                     if enhanced_rec:
-                        # MongoDB returns ObjectId which is not JSON serializable
-                        if '_id' in enhanced_rec:
-                            enhanced_rec.pop('_id', None)
+                        # Merge model recommendation with enhanced data
+                        merged_rec = {**rec, **enhanced_rec}
+                        # Ensure core fields
                         # Merge model recommendation with enhanced data
                         merged_rec = {**rec, **enhanced_rec}
                         # Ensure core fields are preserved
@@ -651,25 +656,22 @@ def series_detail(series_id):
     # For debugging
     print(f"\n==== DEBUG: Looking for series ID: {series_id} ====")
     
-    # First try to get the series directly from MongoDB
+    # First try to get the series directly from JSON database
     complete_series = None
     if db_instance:
         try:
             # Convert ID to appropriate type if needed
             if series_id.isdigit():
                 # If ID is numeric, try both string and integer versions
-                mongo_series = db_instance.get_detailed_series(series_id)
-                if not mongo_series:
-                    mongo_series = db_instance.get_detailed_series(int(series_id))
+                json_series = db_instance.get_detailed_series(series_id)
+                if not json_series:
+                    json_series = db_instance.get_detailed_series(int(series_id))
             else:
-                mongo_series = db_instance.get_detailed_series(series_id)
+                json_series = db_instance.get_detailed_series(series_id)
                 
-            if mongo_series:
-                # MongoDB returns ObjectId which is not JSON serializable
-                if '_id' in mongo_series:
-                    mongo_series.pop('_id', None)
-                print(f"Found series directly in MongoDB: {mongo_series.get('name', 'Unknown')}")
-                complete_series = mongo_series
+            if json_series:
+                print(f"Found series directly in JSON database: {json_series.get('name', 'Unknown')}")
+                complete_series = json_series
                 
                 # Process genres properly
                 if 'genre_names' not in complete_series or not complete_series['genre_names']:
@@ -688,11 +690,11 @@ def series_detail(series_id):
                         complete_series['genre_names'] = extracted_genres
                         print(f"Extracted genres: {extracted_genres}")
             else:
-                print(f"Series not found in MongoDB, falling back to model dataframe")
+                print(f"Series not found in JSON database, falling back to model dataframe")
         except Exception as e:
-            print(f"Error fetching series from MongoDB: {e}")
+            print(f"Error fetching series from JSON database: {e}")
     
-    # If we couldn't get the series from MongoDB, fall back to the model dataframe
+    # If we couldn't get the series from JSON database, fall back to the model dataframe
     if complete_series is None:
         series_df = series_model['series_df']
         
@@ -740,23 +742,20 @@ def series_detail(series_id):
             print(f"ID types in dataset: {series_df['id'].apply(type).unique()}")
             return render_template('404.html'), 404
         
-        # Try to get enhanced data from MongoDB
+        # Try to get enhanced data from JSON database
         enhanced_series = None
         if db_instance:
             try:
-                print(f"Looking for enhanced data in MongoDB for series ID: {series['id']}")
+                print(f"Looking for enhanced data in JSON database for series ID: {series['id']}")
                 enhanced_series = db_instance.get_detailed_series(series['id'])
                 if enhanced_series:
-                    # MongoDB returns ObjectId which is not JSON serializable
-                    if '_id' in enhanced_series:
-                        enhanced_series.pop('_id', None)
-                    print(f"Found enhanced data in MongoDB for {series['name']}")
+                    print(f"Found enhanced data in JSON database for {series['name']}")
                 else:
-                    print(f"No enhanced data found in MongoDB for {series['name']}")
+                    print(f"No enhanced data found in JSON database for {series['name']}")
             except Exception as e:
-                print(f"Error fetching series from MongoDB: {e}")
+                print(f"Error fetching series from JSON database: {e}")
         
-        # Merge model data with MongoDB data if available
+        # Merge model data with JSON data if available
         if enhanced_series:
             # Start with enhanced data as the base
             complete_series = enhanced_series
@@ -764,7 +763,7 @@ def series_detail(series_id):
             complete_series['name'] = series['name']
             complete_series['id'] = series['id']
             
-            # Make sure to get genres from model data if not in MongoDB
+            # Make sure to get genres from model data if not in JSON database
             if ('genre_names' not in complete_series or not complete_series['genre_names']) and 'genre_names' in series:
                 complete_series['genre_names'] = series['genre_names']
                 
@@ -828,7 +827,7 @@ def series_detail(series_id):
         print(f"Using name-based recommendation for series: {series_name}")
         recommendations = get_series_recommendations(series_name, series_model, top_n=9)
         
-        # Enhance recommendations with MongoDB data if available
+        # Enhance recommendations with JSON database data if available
         if db_instance:
             enhanced_recommendations = []
             for rec in recommendations:
@@ -836,9 +835,6 @@ def series_detail(series_id):
                     # Look for enhanced data
                     enhanced_rec = db_instance.get_detailed_series(rec['id'])
                     if enhanced_rec:
-                        # MongoDB returns ObjectId which is not JSON serializable
-                        if '_id' in enhanced_rec:
-                            enhanced_rec.pop('_id', None)
                         # Merge model recommendation with enhanced data
                         merged_rec = {**rec, **enhanced_rec}
                         # Ensure core fields are preserved
@@ -916,15 +912,12 @@ def api_movie_recommendations(movie_id):
     try:
         recommendations = get_movie_recommendations(movie['title'], movie_model, top_n=9)
         
-        # Enhance recommendations with MongoDB data if available
+        # Enhance recommendations with JSON database data if available
         if db_instance:
             for rec in recommendations:
                 try:
                     enhanced_rec = db_instance.get_detailed_movie(rec['id'])
                     if enhanced_rec:
-                        # Remove MongoDB ObjectId
-                        if '_id' in enhanced_rec:
-                            enhanced_rec.pop('_id', None)
                         # Update recommendation with extra data
                         for key, value in enhanced_rec.items():
                             if key not in rec or rec[key] is None:
@@ -967,15 +960,12 @@ def api_series_recommendations(series_id):
     try:
         recommendations = get_series_recommendations(series['name'], series_model, top_n=9)
         
-        # Enhance recommendations with MongoDB data if available
+        # Enhance recommendations with JSON database data if available
         if db_instance:
             for rec in recommendations:
                 try:
                     enhanced_rec = db_instance.get_detailed_series(rec['id'])
                     if enhanced_rec:
-                        # Remove MongoDB ObjectId
-                        if '_id' in enhanced_rec:
-                            enhanced_rec.pop('_id', None)
                         # Update recommendation with extra data
                         for key, value in enhanced_rec.items():
                             if key not in rec or rec[key] is None:

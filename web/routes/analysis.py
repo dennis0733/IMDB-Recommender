@@ -13,8 +13,8 @@ matplotlib.use('Agg')  # Use the 'Agg' backend which doesn't require GUI
 # Add the parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-# Import Database class
-from src.data.database import Database
+# Import JSONDatabase class instead of Database
+from src.data.json_database import JSONDatabase
 
 # Create blueprint
 analysis_bp = Blueprint('analysis', __name__)
@@ -28,29 +28,39 @@ def get_plot_as_base64(fig, dpi=100):
     plt.close(fig)
     return img_str
 
-# Enhanced movie analysis route with direct database access
+# Enhanced movie analysis route with direct JSON database access
 @analysis_bp.route('/movie-analysis')
 def movie_analysis():
     try:
-        # Connect to the database
-        db = Database()
+        # Determine path to data/processed directory
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 
+                               "data", "processed")
         
-        # Get all movies directly from detailed_movies collection
-        mongo_movies = db.db.detailed_movies.find({})
+        # Connect to the JSONDatabase
+        db = JSONDatabase(data_dir=data_dir)
+        
+        # Get all movies from detailed_movies collection
+        detailed_movies = db.get_collection("detailed_movies")
         
         # Convert to DataFrame
-        movies_df = pd.DataFrame(list(mongo_movies))
+        movies_df = pd.DataFrame(detailed_movies)
         
         if len(movies_df) == 0:
             return "No movie data found in database", 404
         
-        print(f"Retrieved {len(movies_df)} movies from MongoDB")
+        print(f"Retrieved {len(movies_df)} movies from JSON database")
+        
+        # Fix numeric fields - ensure budget and revenue are numeric
+        for field in ['budget', 'revenue', 'vote_count', 'vote_average', 'popularity', 'runtime']:
+            if field in movies_df.columns:
+                # Convert to numeric, treating dictionaries and other non-convertible types as NaN
+                movies_df[field] = pd.to_numeric(movies_df[field], errors='coerce')
         
         # Check if 'genres' field exists and map it to 'genre_names' if needed
         if 'genres' in movies_df.columns and 'genre_names' not in movies_df.columns:
             print("Mapping 'genres' field to 'genre_names'")
             
-            # MongoDB may store genres as objects with 'id' and 'name'
+            # JSON may store genres as objects with 'id' and 'name'
             # Extract just the names into a list for each movie
             def extract_genre_names(genres):
                 if not genres:
@@ -70,8 +80,8 @@ def movie_analysis():
         if 'release_date' in movies_df.columns:
             movies_df['release_year'] = movies_df['release_date'].str[:4].astype('float', errors='ignore')
     except Exception as e:
-        print(f"Error retrieving data from database: {e}")
-        return f"Error retrieving data from database: {e}", 500
+        print(f"Error retrieving data from JSON database: {e}")
+        return f"Error retrieving data from JSON database: {e}", 500
     
     # Verify we have the required columns for analysis
     required_cols = ['genre_names', 'vote_average', 'popularity', 'title']
@@ -89,28 +99,35 @@ def movie_analysis():
         fig, ax = plt.subplots(figsize=(10, 6))
         genre_counts = {}
         
-        # Count genres with error handling
-        for genres in movies_df['genre_names']:
-            # Handle different formats of genre data
-            if isinstance(genres, list):
-                for genre in genres:
-                    if isinstance(genre, str):
-                        genre_counts[genre] = genre_counts.get(genre, 0) + 1
-                    elif isinstance(genre, dict) and 'name' in genre:
-                        genre_name = genre['name']
-                        genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 1
-            elif isinstance(genres, dict):
-                # Handle case where genres might be a dictionary with names
-                for _, genre_name in genres.items():
-                    if isinstance(genre_name, str):
-                        genre_counts[genre_name] = genre_counts.get(genre_name, 0) + 1
-                    elif isinstance(genre_name, dict) and 'name' in genre_name:
-                        name = genre_name['name']
-                        genre_counts[name] = genre_counts.get(name, 0) + 1
+        # Count genres with more robust error handling
+        for movie in movies_df.iterrows():
+            movie_data = movie[1]  # Get the actual movie data
+            
+            # Try different possible locations for genre data
+            if 'genre_names' in movie_data and isinstance(movie_data['genre_names'], list):
+                genres = movie_data['genre_names']
+            elif 'genres' in movie_data:
+                # Extract from genres field which might be a list of dicts with 'name' key
+                genres = []
+                if isinstance(movie_data['genres'], list):
+                    for genre in movie_data['genres']:
+                        if isinstance(genre, dict) and 'name' in genre:
+                            genres.append(genre['name'])
+            else:
+                # No genre data found
+                genres = []
+                
+            # Count each genre
+            for genre in genres:
+                if isinstance(genre, str) and genre.strip():  # Only count non-empty strings
+                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
         
-        # Sort and get top genres
-        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:15]
-        if sorted_genres:
+        # Check if we found any genres
+        if not genre_counts:
+            print("No genre data found in the expected format")
+        else:
+            # Sort and get top genres
+            sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:15]
             genres = [g[0] for g in sorted_genres]
             counts = [g[1] for g in sorted_genres]
             
@@ -169,18 +186,23 @@ def movie_analysis():
     
     # 3. Popularity vs. Rating Scatter Plot
     try:
+        
+        # First calculate a weighted score for better ranking
+        movies_df['score'] = movies_df['popularity'] * movies_df['vote_average'] * movies_df['vote_count']
+
         fig, ax = plt.subplots(figsize=(10, 6))
-        scatter = ax.scatter(movies_df['vote_average'], movies_df['popularity'], 
-                           alpha=0.5, c=movies_df['vote_count'], cmap='viridis', s=20)
+        scatter = ax.scatter(movies_df['vote_average'].dropna(), movies_df['popularity'].dropna(), 
+                           alpha=0.5, c=movies_df['vote_count'].dropna(), cmap='viridis', s=20)
         
         # Add colorbar for vote count
         cbar = plt.colorbar(scatter)
         cbar.set_label('Vote Count')
         
         # Label some interesting points
-        for _, row in movies_df.nlargest(5, 'popularity').iterrows():
-            ax.annotate(row['title'], (row['vote_average'], row['popularity']),
-                       xytext=(5, 5), textcoords='offset points', fontsize=8)
+        for _, row in movies_df.nlargest(5, 'score').iterrows():
+            if pd.notna(row['vote_average']) and pd.notna(row['popularity']):
+                ax.annotate(row['title'], (row['vote_average'], row['popularity']),
+                           xytext=(5, 5), textcoords='offset points', fontsize=8)
                        
         ax.set_title('Movie Popularity vs. Rating', fontsize=16)
         ax.set_xlabel('Rating')
@@ -194,7 +216,8 @@ def movie_analysis():
     # 4. Runtime Distribution (if available)
     if 'runtime' in movies_df.columns:
         try:
-            runtime_df = movies_df[movies_df['runtime'] > 0]
+            runtime_df = movies_df.dropna(subset=['runtime'])
+            runtime_df = runtime_df[runtime_df['runtime'] > 0]
             if len(runtime_df) > 10:  # Need enough data
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax.hist(runtime_df['runtime'], bins=20, color='#3498db', alpha=0.7)
@@ -221,7 +244,11 @@ def movie_analysis():
     if 'budget' in movies_df.columns and 'revenue' in movies_df.columns:
         try:
             # Filter to movies with both budget and revenue > 0
-            budget_df = movies_df[(movies_df['budget'] > 0) & (movies_df['revenue'] > 0)]
+            # Ensure budget and revenue are numeric
+            budget_df = movies_df.dropna(subset=['budget', 'revenue'])
+            # Convert to numeric to avoid type comparison issues
+            budget_df = budget_df[(budget_df['budget'] > 0) & (budget_df['revenue'] > 0)]
+            
             if len(budget_df) > 10:  # Need enough data
                 fig, ax = plt.subplots(figsize=(10, 6))
                 
@@ -351,6 +378,10 @@ def movie_analysis():
         print(f"Error creating word cloud: {e}")
     
     # Calculate some statistics
+    # Ensure numeric values for calculations
+    for col in ['vote_average', 'vote_count', 'popularity']:
+        movies_df[col] = pd.to_numeric(movies_df[col], errors='coerce')
+    
     # First calculate a weighted score for better ranking
     movies_df['score'] = movies_df['popularity'] * movies_df['vote_average'] * movies_df['vote_count']
     
@@ -360,8 +391,8 @@ def movie_analysis():
     
     stats = {
         'total_movies': len(movies_df),
-        'avg_rating': movies_df['vote_average'].mean(),
-        'median_rating': movies_df['vote_average'].median(),
+        'avg_rating': movies_df['vote_average'].dropna().mean(),
+        'median_rating': movies_df['vote_average'].dropna().median(),
         'top_genres': [g[0] for g in sorted_genres[:5]] if 'sorted_genres' in locals() and len(sorted_genres) >= 5 else [],
         'highest_rated': qualified_movies.sort_values('vote_average', ascending=False).head(5)[['id', 'title', 'vote_average', 'vote_count']].to_dict('records'),
         'most_popular': movies_df.sort_values('score', ascending=False).head(5)[['id', 'title', 'popularity', 'vote_average', 'vote_count']].to_dict('records')
@@ -369,7 +400,8 @@ def movie_analysis():
     
     # Add runtime statistics if available
     if 'runtime' in movies_df.columns:
-        runtime_df = movies_df[movies_df['runtime'] > 0]
+        runtime_df = movies_df.dropna(subset=['runtime'])
+        runtime_df = runtime_df[runtime_df['runtime'] > 0]
         if len(runtime_df) > 0:
             stats['avg_runtime'] = runtime_df['runtime'].mean()
             stats['longest_movies'] = runtime_df.nlargest(5, 'runtime')[['id', 'title', 'runtime']].to_dict('records')
@@ -377,29 +409,13 @@ def movie_analysis():
     
     # Add budget and revenue statistics if available
     if 'budget' in movies_df.columns and 'revenue' in movies_df.columns:
-        budget_df = movies_df[(movies_df['budget'] > 0) & (movies_df['revenue'] > 0)]
+        budget_df = movies_df.dropna(subset=['budget', 'revenue'])
+        budget_df = budget_df[(budget_df['budget'] > 0) & (budget_df['revenue'] > 0)]
         if len(budget_df) > 0:
             stats['avg_budget'] = budget_df['budget'].mean()
             stats['avg_revenue'] = budget_df['revenue'].mean()
             stats['highest_budget'] = budget_df.nlargest(5, 'budget')[['id', 'title', 'budget']].to_dict('records')
             stats['highest_revenue'] = budget_df.nlargest(5, 'revenue')[['id', 'title', 'revenue']].to_dict('records')
-    
-    # Add runtime statistics if available
-    if 'runtime' in movies_df.columns:
-        runtime_df = movies_df[movies_df['runtime'] > 0]
-        if len(runtime_df) > 0:
-            stats['avg_runtime'] = runtime_df['runtime'].mean()
-            stats['longest_movies'] = runtime_df.nlargest(5, 'runtime')[['id','title', 'runtime']].to_dict('records')
-            stats['shortest_movies'] = runtime_df.nsmallest(5, 'runtime')[['id','title', 'runtime']].to_dict('records')
-    
-    # Add budget and revenue statistics if available
-    if 'budget' in movies_df.columns and 'revenue' in movies_df.columns:
-        budget_df = movies_df[(movies_df['budget'] > 0) & (movies_df['revenue'] > 0)]
-        if len(budget_df) > 0:
-            stats['avg_budget'] = budget_df['budget'].mean()
-            stats['avg_revenue'] = budget_df['revenue'].mean()
-            stats['highest_budget'] = budget_df.nlargest(5, 'budget')[['id','title', 'budget']].to_dict('records')
-            stats['highest_revenue'] = budget_df.nlargest(5, 'revenue')[['id','title', 'revenue']].to_dict('records')
     
     # Add production company statistics if available
     if 'production_companies' in movies_df.columns:
@@ -424,23 +440,35 @@ def movie_analysis():
     
     return render_template('movie_analysis.html', plots=plots, stats=stats)
 
-# Enhanced series analysis route with direct database access
+# Enhanced series analysis route with direct JSON database access
 @analysis_bp.route('/series-analysis')
 def series_analysis():
+
+
     try:
-        # Connect to the database
-        db = Database()
+        # Determine path to data/processed directory
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), 
+                               "data", "processed")
         
-        # Get all series directly from detailed_series collection
-        mongo_series = db.db.detailed_series.find({})
+        # Connect to the JSONDatabase
+        db = JSONDatabase(data_dir=data_dir)
+        
+        # Get all series from detailed_series collection
+        detailed_series = db.get_collection("detailed_series")
         
         # Convert to DataFrame
-        series_df = pd.DataFrame(list(mongo_series))
+        series_df = pd.DataFrame(detailed_series)
         
         if len(series_df) == 0:
             return "No series data found in database", 404
         
-        print(f"Retrieved {len(series_df)} series from MongoDB")
+        print(f"Retrieved {len(series_df)} series from JSON database")
+        
+        # Fix numeric fields - ensure numeric fields are properly typed
+        for field in ['vote_count', 'vote_average', 'popularity', 'number_of_seasons', 'number_of_episodes']:
+            if field in series_df.columns:
+                # Convert to numeric, treating dictionaries and other non-convertible types as NaN
+                series_df[field] = pd.to_numeric(series_df[field], errors='coerce')
         
         # Check if 'genres' field exists and map it to 'genre_names' if needed
         if 'genres' in series_df.columns and 'genre_names' not in series_df.columns:
@@ -465,8 +493,8 @@ def series_analysis():
         if 'first_air_date' in series_df.columns:
             series_df['start_year'] = series_df['first_air_date'].str[:4].astype('float', errors='ignore')
     except Exception as e:
-        print(f"Error retrieving data from database: {e}")
-        return f"Error retrieving data from database: {e}", 500
+        print(f"Error retrieving data from JSON database: {e}")
+        return f"Error retrieving data from JSON database: {e}", 500
     
     # Verify we have the required columns for analysis
     required_cols = ['genre_names', 'vote_average', 'popularity', 'name']
@@ -481,17 +509,40 @@ def series_analysis():
     
     # 1. Genre Distribution
     try:
+        # Clear all previous plots and create a new figure
+        plt.close('all')
         fig, ax = plt.subplots(figsize=(10, 6))
         genre_counts = {}
-        for genres in series_df['genre_names']:
-            if isinstance(genres, list):
-                for genre in genres:
-                    if isinstance(genre, str):
-                        genre_counts[genre] = genre_counts.get(genre, 0) + 1
         
-        # Sort and get top genres
-        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:15]
-        if sorted_genres:
+        # Count genres with more robust error handling, similar to movie version
+        for series in series_df.iterrows():
+            series_data = series[1]  # Get the actual series data
+            
+            # Try different possible locations for genre data
+            if 'genre_names' in series_data and isinstance(series_data['genre_names'], list):
+                genres = series_data['genre_names']
+            elif 'genres' in series_data:
+                # Extract from genres field which might be a list of dicts with 'name' key
+                genres = []
+                if isinstance(series_data['genres'], list):
+                    for genre in series_data['genres']:
+                        if isinstance(genre, dict) and 'name' in genre:
+                            genres.append(genre['name'])
+            else:
+                # No genre data found
+                genres = []
+                
+            # Count each genre
+            for genre in genres:
+                if isinstance(genre, str) and genre.strip():  # Only count non-empty strings
+                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
+        
+        # Check if we found any genres
+        if not genre_counts:
+            print("No genre data found in the expected format")
+        else:
+            # Sort and get top genres
+            sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)[:15]
             genres = [g[0] for g in sorted_genres]
             counts = [g[1] for g in sorted_genres]
             
@@ -530,8 +581,8 @@ def series_analysis():
             except Exception as e:
                 print(f"Error creating KDE: {e}")
         
-        mean_rating = series_df['vote_average'].mean()
-        median_rating = series_df['vote_average'].median()
+        mean_rating = series_df['vote_average'].dropna().mean()
+        median_rating = series_df['vote_average'].dropna().median()
         
         ax.axvline(mean_rating, color='#e74c3c', linestyle='--', 
                   label=f'Mean Rating: {mean_rating:.2f}')
@@ -553,7 +604,7 @@ def series_analysis():
         if 'start_year' in series_df.columns:
             fig, ax = plt.subplots(figsize=(12, 6))
             series_df['start_year'] = pd.to_numeric(series_df['start_year'], errors='coerce')
-            year_counts = series_df['start_year'].value_counts().sort_index()
+            year_counts = series_df['start_year'].dropna().value_counts().sort_index()
             
             # Filter recent years (e.g., last 30 years)
             recent_years = year_counts[year_counts.index >= 1990]
@@ -580,170 +631,92 @@ def series_analysis():
     except Exception as e:
         print(f"Error creating year distribution plot: {e}")
     
-    # 4. Language Distribution
     try:
         if 'original_language' in series_df.columns:
-            # Language bar chart
-            fig, ax = plt.subplots(figsize=(10, 6))
-            lang_counts = series_df['original_language'].value_counts().head(10)
+            # Make sure we have valid language data
+            valid_languages = series_df['original_language'].dropna()
             
-            bars = ax.bar(lang_counts.index, lang_counts.values, color='#3498db')
-            ax.set_title('Top 10 Languages in TV Series', fontsize=16)
-            ax.set_xlabel('Language')
-            ax.set_ylabel('Number of Series')
+            # Filter out any non-string values
+            valid_languages = valid_languages[valid_languages.apply(lambda x: isinstance(x, str))]
             
-            # Add count labels
-            for i, v in enumerate(lang_counts.values):
-                ax.text(i, v + 5, f'{v:,}', ha='center', fontsize=10)
+            if len(valid_languages) > 0:
+                # Language bar chart
+                fig, ax = plt.subplots(figsize=(10, 6))
+                lang_counts = valid_languages.value_counts().head(10)
                 
-            ax.grid(axis='y', alpha=0.3)
-            plt.tight_layout()
-            plots['language_distribution'] = get_plot_as_base64(fig)
-            
-            # Language pie chart
-            plt.figure(figsize=(10, 10))
-            explode = [0.1 if i == 0 else 0 for i in range(len(lang_counts))]
-            plt.pie(lang_counts.values, labels=lang_counts.index, autopct='%1.1f%%', 
-                    startangle=90, explode=explode, shadow=True, 
-                    colors=plt.cm.Paired(np.linspace(0, 1, len(lang_counts))))
-            plt.axis('equal')
-            plt.title('Top 10 Languages in TV Series', fontsize=16)
-            plt.tight_layout()
-            plots['language_pie'] = get_plot_as_base64(plt.gcf())
-            plt.close()
+                if len(lang_counts) > 0:
+                    bars = ax.bar(lang_counts.index, lang_counts.values, color='#3498db')
+                    ax.set_title('Top 10 Languages in TV Series', fontsize=16)
+                    ax.set_xlabel('Language')
+                    ax.set_ylabel('Number of Series')
+                    
+                    # Add count labels
+                    for i, v in enumerate(lang_counts.values):
+                        ax.text(i, v + 5, f'{v:,}', ha='center', fontsize=10)
+                        
+                    ax.grid(axis='y', alpha=0.3)
+                    plt.tight_layout()
+                    plots['language_distribution'] = get_plot_as_base64(fig)
+                    
+                    # Language pie chart
+                    plt.figure(figsize=(10, 10))
+                    explode = [0.1 if i == 0 else 0 for i in range(len(lang_counts))]
+                    plt.pie(lang_counts.values, labels=lang_counts.index, autopct='%1.1f%%', 
+                            startangle=90, explode=explode, shadow=True, 
+                            colors=plt.cm.Paired(np.linspace(0, 1, len(lang_counts))))
+                    plt.axis('equal')
+                    plt.title('Top 10 Languages in TV Series', fontsize=16)
+                    plt.tight_layout()
+                    plots['language_pie'] = get_plot_as_base64(plt.gcf())
+                    plt.close()
+            else:
+                print("No valid language data found")
     except Exception as e:
         print(f"Error creating language plots: {e}")
+
+    # Calculate statistics
+    # Ensure numeric values for calculations
+    for col in ['vote_average', 'vote_count', 'popularity']:
+        series_df[col] = pd.to_numeric(series_df[col], errors='coerce')
     
-    # 5. Number of Seasons Distribution
-    try:
-        if 'number_of_seasons' in series_df.columns:
-            # Filter to reasonable number of seasons
-            seasons_df = series_df[series_df['number_of_seasons'] > 0]
-            
-            if len(seasons_df) > 0:
-                fig, ax = plt.subplots(figsize=(10, 6))
-                seasons_count = seasons_df['number_of_seasons'].value_counts().sort_index()
-                # Filter to reasonable number of seasons (e.g., up to 20)
-                seasons_count = seasons_count[seasons_count.index <= 20]
-                
-                bars = ax.bar(seasons_count.index, seasons_count.values, color='#3498db')
-                ax.set_title('Distribution of Number of Seasons', fontsize=16)
-                ax.set_xlabel('Number of Seasons')
-                ax.set_ylabel('Number of Series')
-                
-                # Add count labels
-                for i, v in enumerate(seasons_count.values):
-                    ax.text(seasons_count.index[i], v + 5, f'{v:,}', ha='center', fontsize=10)
-                    
-                ax.grid(axis='y', alpha=0.3)
-                plt.tight_layout()
-                plots['seasons_distribution'] = get_plot_as_base64(fig)
-    except Exception as e:
-        print(f"Error creating seasons distribution plot: {e}")
+    # First calculate a weighted score for better ranking
+    series_df['score'] = series_df['popularity'].fillna(0) * series_df['vote_average'].fillna(0) * series_df['vote_count'].fillna(0)
     
-    # 6. Series Status (if available)
-    try:
-        if 'status' in series_df.columns:
-            status_counts = series_df['status'].value_counts().head(5)
-            
-            plt.figure(figsize=(10, 10))
-            explode = [0.1 if i == 0 else 0 for i in range(len(status_counts))]
-            plt.pie(status_counts.values, labels=status_counts.index, autopct='%1.1f%%', 
-                    startangle=90, explode=explode, shadow=True, 
-                    colors=plt.cm.tab10(np.linspace(0, 1, len(status_counts))))
-            plt.axis('equal')
-            plt.title('TV Series Status Distribution', fontsize=16)
-            plt.tight_layout()
-            plots['status_pie'] = get_plot_as_base64(plt.gcf())
-            plt.close()
-    except Exception as e:
-        print(f"Error creating status pie chart: {e}")
+    # Apply a minimum vote count threshold for highest rated to avoid series with few votes
+    min_votes = 1000  # Minimum number of votes required
+    qualified_series = series_df[series_df['vote_count'] >= min_votes]
     
-    # 7. Episode Count vs. Season Count
-    try:
-        if 'number_of_episodes' in series_df.columns and 'number_of_seasons' in series_df.columns:
-            # Filter to series with both values > 0
-            episodes_seasons_df = series_df[(series_df['number_of_episodes'] > 0) & (series_df['number_of_seasons'] > 0)]
-            
-            if len(episodes_seasons_df) > 5:  # Need enough data
-                fig, ax = plt.subplots(figsize=(10, 6))
-                
-                # Create scatter plot
-                scatter = ax.scatter(episodes_seasons_df['number_of_seasons'], 
-                                   episodes_seasons_df['number_of_episodes'], 
-                                   alpha=0.6, c=episodes_seasons_df['vote_average'], 
-                                   cmap='viridis', s=30)
-                
-                # Add colorbar for ratings
-                cbar = plt.colorbar(scatter)
-                cbar.set_label('Rating')
-                
-                # Add a line for typical episode count per season
-                episodes_per_season = episodes_seasons_df['number_of_episodes'] / episodes_seasons_df['number_of_seasons']
-                avg_episodes = episodes_per_season.median()
-                x_range = np.array([1, episodes_seasons_df['number_of_seasons'].max()])
-                ax.plot(x_range, avg_episodes * x_range, 'r--', alpha=0.5, 
-                       label=f'Avg: {avg_episodes:.1f} episodes/season')
-                
-                # Label some notable series
-                for _, row in episodes_seasons_df.nlargest(5, 'number_of_episodes').iterrows():
-                    ax.annotate(row['name'], (row['number_of_seasons'], row['number_of_episodes']),
-                               xytext=(5, 5), textcoords='offset points', fontsize=8)
-                
-                ax.set_title('TV Series: Episodes vs. Seasons', fontsize=16)
-                ax.set_xlabel('Number of Seasons')
-                ax.set_ylabel('Number of Episodes')
-                ax.grid(alpha=0.3)
-                ax.legend()
-                plt.tight_layout()
-                plots['episodes_vs_seasons'] = get_plot_as_base64(fig)
-                
-                # Create a histogram of episodes per season
-                fig, ax = plt.subplots(figsize=(10, 6))
-                ax.hist(episodes_per_season, bins=20, color='#3498db', alpha=0.7)
-                
-                ax.axvline(episodes_per_season.mean(), color='#e74c3c', linestyle='--', 
-                          label=f'Mean: {episodes_per_season.mean():.1f}')
-                ax.axvline(episodes_per_season.median(), color='#2ecc71', linestyle='--', 
-                          label=f'Median: {episodes_per_season.median():.1f}')
-                
-                ax.set_title('Episodes per Season Distribution', fontsize=16)
-                ax.set_xlabel('Episodes per Season')
-                ax.set_ylabel('Number of Series')
-                ax.grid(alpha=0.3)
-                ax.legend()
-                plt.tight_layout()
-                plots['episodes_per_season'] = get_plot_as_base64(fig)
-    except Exception as e:
-        print(f"Error creating episodes vs seasons plots: {e}")
+    stats = {
+        'total_series': len(series_df),
+        'avg_rating': series_df['vote_average'].dropna().mean(),
+        'median_rating': series_df['vote_average'].dropna().median(),
+        'top_genres': [g[0] for g in sorted_genres[:5]] if 'sorted_genres' in locals() and len(sorted_genres) >= 5 else [],
+        'highest_rated': qualified_series.sort_values('vote_average', ascending=False).head(5)[['id', 'name', 'vote_average', 'vote_count']].to_dict('records') if not qualified_series.empty else [],
+        'most_popular': series_df.sort_values('score', ascending=False).head(5)[['id', 'name', 'popularity', 'vote_average', 'vote_count']].to_dict('records')
+    }
     
-    # 8. Popularity vs. Rating Scatter Plot
-    try:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        scatter = ax.scatter(series_df['vote_average'], series_df['popularity'], 
-                           alpha=0.5, c=series_df['vote_count'], cmap='viridis', s=20)
-        
-        # Add colorbar for vote count
-        cbar = plt.colorbar(scatter)
-        cbar.set_label('Vote Count')
-        
-        # Label some interesting points
-        for _, row in series_df.nlargest(5, 'popularity').iterrows():
-            ax.annotate(row['name'], (row['vote_average'], row['popularity']),
-                       xytext=(5, 5), textcoords='offset points', fontsize=8)
-                       
-        ax.set_title('TV Series Popularity vs. Rating', fontsize=16)
-        ax.set_xlabel('Rating')
-        ax.set_ylabel('Popularity')
-        ax.grid(alpha=0.3)
-        plt.tight_layout()
-        plots['popularity_vs_rating'] = get_plot_as_base64(fig)
-    except Exception as e:
-        print(f"Error creating popularity vs rating plot: {e}")
+    # Add episode/season stats if available
+    if 'number_of_seasons' in series_df.columns:
+        seasons_df = series_df.dropna(subset=['number_of_seasons'])
+        seasons_df = seasons_df[seasons_df['number_of_seasons'] > 0]
+        if len(seasons_df) > 0:
+            stats.update({
+                'avg_seasons': seasons_df['number_of_seasons'].mean(),
+                'longest_running': seasons_df.nlargest(5, 'number_of_seasons')[['id', 'name', 'number_of_seasons']].to_dict('records')
+            })
     
-    # 9. Networks Analysis (if available)
-    try:
-        if 'networks' in series_df.columns:
+    if 'number_of_episodes' in series_df.columns:
+        episodes_df = series_df.dropna(subset=['number_of_episodes'])
+        episodes_df = episodes_df[episodes_df['number_of_episodes'] > 0]
+        if len(episodes_df) > 0:
+            stats.update({
+                'avg_episodes': episodes_df['number_of_episodes'].mean(),
+                'most_episodes': episodes_df.nlargest(5, 'number_of_episodes')[['id', 'name', 'number_of_episodes']].to_dict('records')
+            })
+    
+    # Get top networks if available
+    if 'networks' in series_df.columns:
+        try:
             # Count series by network
             network_counts = {}
             for _, row in series_df.iterrows():
@@ -756,149 +729,9 @@ def series_analysis():
                             network_counts[network] = network_counts.get(network, 0) + 1
             
             if network_counts:
-                # Sort and get top networks
                 sorted_networks = sorted(network_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-                networks = [n[0] for n in sorted_networks]
-                counts = [n[1] for n in sorted_networks]
-                
-                # Create horizontal bar chart
-                fig, ax = plt.subplots(figsize=(10, 6))
-                bars = ax.barh(networks, counts, color='#3498db')
-                ax.set_title('Top 10 TV Networks', fontsize=16)
-                ax.set_xlabel('Number of Series')
-                
-                # Add count labels
-                for i, bar in enumerate(bars):
-                    width = bar.get_width()
-                    ax.text(width + 5, bar.get_y() + bar.get_height()/2, f'{width:,.0f}', 
-                            ha='left', va='center', fontsize=10)
-                
-                ax.grid(axis='x', alpha=0.3)
-                plt.tight_layout()
-                plots['network_distribution'] = get_plot_as_base64(fig)
-                
-                # Also get average ratings by network
-                network_ratings = {}
-                for _, row in series_df.iterrows():
-                    networks = row['networks']
-                    if isinstance(networks, list) and isinstance(row['vote_average'], (int, float)):
-                        for network in networks:
-                            if isinstance(network, dict) and 'name' in network:
-                                if network['name'] not in network_ratings:
-                                    network_ratings[network['name']] = []
-                                network_ratings[network['name']].append(row['vote_average'])
-                            elif isinstance(network, str):
-                                if network not in network_ratings:
-                                    network_ratings[network] = []
-                                network_ratings[network].append(row['vote_average'])
-                
-                # Calculate average ratings and filter to networks with enough data
-                network_avg_ratings = {k: np.mean(v) for k, v in network_ratings.items() if len(v) >= 5}
-                
-                if network_avg_ratings:
-                    # Sort and get top rated networks
-                    sorted_ratings = sorted(network_avg_ratings.items(), key=lambda x: x[1], reverse=True)[:10]
-                    top_networks = [n[0] for n in sorted_ratings]
-                    avg_ratings = [n[1] for n in sorted_ratings]
-                    
-                    # Create horizontal bar chart
-                    fig, ax = plt.subplots(figsize=(10, 6))
-                    bars = ax.barh(top_networks, avg_ratings, color='#3498db')
-                    ax.set_title('Top 10 Networks by Average Rating', fontsize=16)
-                    ax.set_xlabel('Average Rating')
-                    
-                    # Add rating labels
-                    for i, bar in enumerate(bars):
-                        width = bar.get_width()
-                        ax.text(width + 0.1, bar.get_y() + bar.get_height()/2, f'{width:.2f}', 
-                                ha='left', va='center', fontsize=10)
-                    
-                    ax.grid(axis='x', alpha=0.3)
-                    plt.tight_layout()
-                    plots['network_ratings'] = get_plot_as_base64(fig)
-    except Exception as e:
-        print(f"Error creating network plots: {e}")
-        
-    # 10. Word Cloud of Series Titles (if wordcloud is available)
-    try:
-        from wordcloud import WordCloud
-        
-        # Combine all series titles
-        all_titles = ' '.join(series_df['name'].astype(str).tolist())
-        
-        # Create word cloud
-        wordcloud = WordCloud(width=800, height=400, background_color='white',
-                             max_words=200, contour_width=3, contour_color='steelblue',
-                             colormap='viridis').generate(all_titles)
-        
-        # Display word cloud
-        plt.figure(figsize=(10, 5))
-        plt.imshow(wordcloud, interpolation='bilinear')
-        plt.axis('off')
-        plt.tight_layout()
-        plots['title_wordcloud'] = get_plot_as_base64(plt.gcf())
-        plt.close()
-    except ImportError:
-        print("WordCloud not available")
-    except Exception as e:
-        print(f"Error creating word cloud: {e}")
-    
-    # For the series_analysis function, make a similar change:
-
-     # Calculate statistics
-    # First calculate a weighted score for better ranking
-    series_df['score'] = series_df['popularity'] * series_df['vote_average'] * series_df['vote_count']
-    
-    # Apply a minimum vote count threshold for highest rated to avoid series with few votes
-    min_votes = 1000  # Minimum number of votes required
-    qualified_series = series_df[series_df['vote_count'] >= min_votes]
-    
-    stats = {
-        'total_series': len(series_df),
-        'avg_rating': series_df['vote_average'].mean(),
-        'median_rating': series_df['vote_average'].median(),
-        'top_genres': [g[0] for g in sorted_genres[:5]] if 'sorted_genres' in locals() and len(sorted_genres) >= 5 else [],
-        'highest_rated': qualified_series.sort_values('vote_average', ascending=False).head(5)[['id', 'name', 'vote_average', 'vote_count']].to_dict('records'),
-        'most_popular': series_df.sort_values('score', ascending=False).head(5)[['id', 'name', 'popularity', 'vote_average', 'vote_count']].to_dict('records')
-    }
-    
-    # Add episode/season stats if available
-    if 'number_of_seasons' in series_df.columns:
-        seasons_df = series_df[series_df['number_of_seasons'] > 0]
-        if len(seasons_df) > 0:
-            stats.update({
-                'avg_seasons': seasons_df['number_of_seasons'].mean(),
-                'longest_running': seasons_df.nlargest(5, 'number_of_seasons')[['id', 'name', 'number_of_seasons']].to_dict('records')
-            })
-    
-    if 'number_of_episodes' in series_df.columns:
-        episodes_df = series_df[series_df['number_of_episodes'] > 0]
-        if len(episodes_df) > 0:
-            stats.update({
-                'avg_episodes': episodes_df['number_of_episodes'].mean(),
-                'most_episodes': episodes_df.nlargest(5, 'number_of_episodes')[['id', 'name', 'number_of_episodes']].to_dict('records')
-            })
-    
-    # Add episode/season stats if available
-    if 'number_of_seasons' in series_df.columns:
-        seasons_df = series_df[series_df['number_of_seasons'] > 0]
-        if len(seasons_df) > 0:
-            stats.update({
-                'avg_seasons': seasons_df['number_of_seasons'].mean(),
-                'longest_running': seasons_df.nlargest(5, 'number_of_seasons')[['id','name', 'number_of_seasons']].to_dict('records')
-            })
-    
-    if 'number_of_episodes' in series_df.columns:
-        episodes_df = series_df[series_df['number_of_episodes'] > 0]
-        if len(episodes_df) > 0:
-            stats.update({
-                'avg_episodes': episodes_df['number_of_episodes'].mean(),
-                'most_episodes': episodes_df.nlargest(5, 'number_of_episodes')[['id','name', 'number_of_episodes']].to_dict('records')
-            })
-    
-    # Get top networks if available
-    if 'networks' in series_df.columns and 'network_counts' in locals() and network_counts:
-        sorted_networks = sorted(network_counts.items(), key=lambda x: x[1], reverse=True)[:10]
-        stats['top_networks'] = [{'name': network, 'count': count} for network, count in sorted_networks]
+                stats['top_networks'] = [{'name': network, 'count': count} for network, count in sorted_networks]
+        except Exception as e:
+            print(f"Error calculating network statistics: {e}")
     
     return render_template('series_analysis.html', plots=plots, stats=stats)
