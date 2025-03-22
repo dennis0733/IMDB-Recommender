@@ -30,8 +30,10 @@ class JSONDatabase:
         """Load all JSON files from data directory"""
         try:
             print(f"Looking for JSON files in: {self.data_dir}")
-            files_in_dir = os.listdir(self.data_dir)
-            print(f"Found files: {files_in_dir}")
+            if not os.path.exists(self.data_dir):
+                print(f"Data directory does not exist: {self.data_dir}")
+                os.makedirs(self.data_dir, exist_ok=True)
+                print(f"Created data directory: {self.data_dir}")
             # Load detailed movies
             movies_path = os.path.join(self.data_dir, "imdb_recommender.detailed_movies.json")
             if os.path.exists(movies_path):
