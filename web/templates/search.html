@@ -1,0 +1,125 @@
+<!-- web/templates/search.html -->
+{% extends 'base.html' %}
+
+{% block title %}Search Results for "{{ query }}" - IMDb Recommender{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Search Header -->
+    <div class="search-info">
+        <h1>Search Results</h1>
+        {% if results|length == 0 %}
+            <p class="text-muted">No results found for "{{ query }}"</p>
+        {% elif results|length == 1 %}
+            <p class="text-muted">1 result found for "{{ query }}"</p>
+        {% else %}
+            <p class="text-muted">{{ results|length }} results found for "{{ query }}"</p>
+        {% endif %}
+    </div>
+    
+    <!-- Filter Options -->
+    <div class="search-filters">
+        <form id="searchForm" action="{{ url_for('recommender.search') }}" method="get" class="row align-items-center">
+            <div class="col-md-2">
+                <label class="mb-2">Filter by:</label>
+            </div>
+            
+            <div class="col-md-4 mb-2 mb-md-0">
+                <div class="btn-group w-100" role="group">
+                    <input type="radio" class="btn-check filter-radio" name="category" id="all" value="all" {% if request.args.get('category', 'all') == 'all' %}checked{% endif %}>
+                    <label class="btn btn-outline-secondary" for="all">All</label>
+                    
+                    <input type="radio" class="btn-check filter-radio" name="category" id="movies" value="movies" {% if request.args.get('category') == 'movies' %}checked{% endif %}>
+                    <label class="btn btn-outline-secondary" for="movies">Movies</label>
+                    
+                    <input type="radio" class="btn-check filter-radio" name="category" id="series" value="series" {% if request.args.get('category') == 'series' %}checked{% endif %}>
+                    <label class="btn btn-outline-secondary" for="series">TV Shows</label>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="query" value="{{ query }}" placeholder="Search again...">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            
+        </form>
+    </div>
+    
+    <!-- Search Results -->
+    {% if results|length > 0 %}
+        <div class="search-results-container">
+            {% for item in results %}
+                <div class="card search-result-card">
+                    <div class="card-img-wrapper">
+                        {% if item.poster_path %}
+                            <img src="https://image.tmdb.org/t/p/w500{{ item.poster_path }}" class="card-img-top" alt="{{ item.title }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="card-img-top" alt="{{ item.title }}">
+                        {% endif %}
+                        
+                        {% if item.type == 'movie' %}
+                            <span class="badge bg-primary media-type-badge">Movie</span>
+                        {% else %}
+                            <span class="badge bg-success media-type-badge">TV</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="card-body">
+                        <h5 class="card-title" title="{{ item.title }}">{{ item.title }}</h5>
+                        <span class="rating-star">
+                            <i class="fas fa-star"></i> {{ item.vote_average|round(1) }}
+                        </span>
+                        
+                        <div class="genre-badges">
+                            {% for genre in item.genres[:2] %}
+                                <span class="genre-pill">{{ genre }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if item.type == 'movie' %}
+                            <a href="{{ url_for('recommender.movie_detail', movie_id=item.id) }}" class="btn btn-sm btn-warning w-100">
+                                View Details
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('recommender.series_detail', series_id=item.id) }}" class="btn btn-sm btn-warning w-100">
+                                View Details
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="no-results-container">
+            <i class="fas fa-search"></i>
+            <h3>No results found for "{{ query }}"</h3>
+            <p class="text-muted">Try adjusting your search or browse our popular selections.</p>
+            <a href="{{ url_for('recommender.index') }}" class="btn btn-warning">
+                <i class="fas fa-home me-2"></i> Back to Homepage
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get all radio buttons with class 'filter-radio'
+    const filterRadios = document.querySelectorAll('.filter-radio');
+    
+    // Add event listener to each radio button
+    filterRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            // Submit the form when a radio button is clicked
+            document.getElementById('searchForm').submit();
+        });
+    });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

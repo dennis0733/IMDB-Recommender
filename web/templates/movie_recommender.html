@@ -1,0 +1,295 @@
+<!-- web/templates/movie_recommender.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ movie.title }} - Movie Recommendations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .movie-backdrop {
+        background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), 
+                    url('https://image.tmdb.org/t/p/original{{ movie.backdrop_path }}');
+        background-size: cover;
+        background-position: center;
+        color: white;
+        padding: 3rem 0;
+    }
+    
+    .movie-poster {
+        width: 100%;
+        border-radius: 4px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    .movie-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .movie-year {
+        font-size: 1.25rem;
+        color: #aaa;
+        margin-bottom: 1rem;
+    }
+    
+    .rating-large {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .rating-star {
+        color: #f5c518;
+    }
+    
+    .genre-pill {
+        background-color: #3a3f47;
+        color: white;
+        font-size: 0.9rem;
+        border-radius: 20px;
+        padding: 0.3rem 0.8rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+        display: inline-block;
+    }
+    
+    .movie-info {
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #aaa;
+    }
+    
+    .recommendation-card {
+        transition: transform 0.3s;
+        height: 100%;
+    }
+    
+    .recommendation-card:hover {
+        transform: scale(1.03);
+    }
+    
+    .recommendation-poster {
+        height: 300px;
+        object-fit: cover;
+    }
+    
+    .section-title {
+        border-left: 4px solid #f5c518;
+        padding-left: 15px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .similar-section {
+        background-color: #f8f9fa;
+        padding: 3rem 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Movie Details Section -->
+<section class="movie-backdrop">
+    <div class="container">
+        <div class="row">
+            <!-- Movie Poster -->
+            <div class="col-md-4 mb-4 mb-md-0">
+                {% if movie.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" class="movie-poster" alt="{{ movie.title }}">
+                {% else %}
+                    <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="movie-poster" alt="{{ movie.title }}">
+                {% endif %}
+            </div>
+            
+            <!-- Movie Details -->
+            <div class="col-md-8">
+                <h1 class="movie-title">{{ movie.title }}</h1>
+                
+                <div class="movie-year">
+                    {% if movie.release_date %}
+                        {{ movie.release_date[:4] }}
+                    {% elif movie.release_year %}
+                        {{ movie.release_year }}
+                    {% endif %}
+                    
+                    {% if movie.runtime %}
+                        <span class="mx-2">•</span>
+                        {{ movie.runtime }} min
+                    {% endif %}
+                </div>
+                
+                <div class="rating-large mb-3">
+                    <span class="rating-star">
+                        <i class="fas fa-star"></i> {{ movie.vote_average|round(1) }}/10
+                    </span>
+                    <span class="ms-2">({{ movie.vote_count }} votes)</span>
+                </div>
+                
+                <div class="mb-4">
+                    {% for genre in movie.genre_names %}
+                        <span class="genre-pill">{{ genre }}</span>
+                    {% endfor %}
+                </div>
+                
+                {% if movie.overview %}
+                <div class="movie-overview mb-4">
+                    <p>{{ movie.overview }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="row movie-info">
+                    {% if movie.director %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Director:</span> {{ movie.director }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if movie.budget %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Budget:</span> ${{ '{:,}'.format(movie.budget) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if movie.revenue %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Revenue:</span> ${{ '{:,}'.format(movie.revenue) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% set language_map = {
+                        "en": "English",
+                        "fr": "French",
+                        "es": "Spanish",
+                        "de": "German",
+                        "it": "Italian",
+                        "tr": "Turkish",
+                        "ko": "Korean",
+                        "ja": "Japanese"
+                    } %}
+                    
+                    {% if movie.original_language %}
+                        <div class="col-md-6 mb-2">
+                            <span class="info-label">Language:</span> 
+                            {{ language_map.get(movie.original_language, movie.original_language) }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <span class="info-label">Production:</span>
+                        {% if movie.production_companies is string %}
+                            {{ movie.production_companies }}
+                        {% elif movie.production_companies is mapping %}
+                            {% for key, company in movie.production_companies.items() if key != '_id' %}
+                                {% if company is mapping and 'name' in company %}
+                                    {{ company.name }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    {{ company }}{% if not loop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% elif movie.production_companies is iterable and movie.production_companies is not string %}
+                            {% for company in movie.production_companies %}
+                                {% if company is mapping and 'name' in company %}
+                                    {{ company.name }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    {{ company }}{% if not loop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </div>
+                    
+                    {% if movie.popularity %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Popularity:</span> {{ movie.popularity|round(1) }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Similar Movies Section -->
+<section class="similar-section">
+    <div class="container">
+        <h2 class="section-title">Recommended Movies</h2>
+        
+        {% if recommendations %}
+            <div class="row">
+                {% for movie in recommendations %}
+                <div class="col-md-4 col-sm-6 mb-4">
+                    <div class="card recommendation-card shadow-sm">
+                        {% if movie.poster_path %}
+                            <img src="https://image.tmdb.org/t/p/w500{{ movie.poster_path }}" class="card-img-top recommendation-poster" alt="{{ movie.title }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="card-img-top recommendation-poster" alt="{{ movie.title }}">
+                        {% endif %}
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">{{ movie.title }}</h5>
+                            <div class="mb-2">
+                                <span class="rating-star">
+                                    <i class="fas fa-star"></i> {{ movie.vote_average|round(1) }}
+                                </span>
+                            </div>
+                            <div class="mb-3">
+                                {% for genre in movie.genre_names[:3] %}
+                                <span class="genre-pill">{{ genre }}</span>
+                                {% endfor %}
+                            </div>
+                            <a href="{{ url_for('recommender.movie_detail', movie_id=movie.id) }}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-film me-1"></i> View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No recommendations available for this movie.
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- More Content Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <h3 class="mb-3">Explore More</h3>
+                <div class="list-group">
+                    <a href="{{ url_for('analysis.movie_analysis') }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chart-bar me-2"></i> Movie Analysis Dashboard
+                    </a>
+                    <a href="{{ url_for('recommender.search') }}?query={{ movie.title }}&category=movies" class="list-group-item list-group-item-action">
+                        <i class="fas fa-search me-2"></i> Find Similar Titles
+                    </a>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <h3 class="mb-3">Popular Genres</h3>
+                <div class="d-flex flex-wrap">
+                    {% set popular_genres = ['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'History', 'Horror', 'Music', 'Mystery', 'Romance', 'Science Fiction', 'Thriller', 'War', 'Western'] %}
+                    
+                    {% for genre in popular_genres %}
+                    <a href="{{ url_for('recommender.search') }}?query={{ genre }}&category=movies" class="btn btn-sm btn-outline-secondary m-1">
+                        {{ genre }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Any additional JavaScript for the movie recommender page
+</script>
+{% endblock %}

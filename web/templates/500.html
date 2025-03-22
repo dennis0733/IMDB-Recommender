@@ -1,0 +1,22 @@
+<!-- web/templates/500.html -->
+{% extends 'base.html' %}
+
+{% block title %}Server Error - IMDb Recommender{% endblock %}
+
+{% block content %}
+<div class="container text-center py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="error-container p-4 rounded">
+                <h1 class="display-1 text-warning">500</h1>
+                <h2 class="mb-4">Server Error</h2>
+                <p class="lead">Sorry, something went wrong on our end. Our technical team has been notified and is working to fix the issue.</p>
+                <p class="mb-4">Please try again later or contact support if the problem persists.</p>
+                <a href="{{ url_for('recommender.index') }}" class="btn btn-warning mt-3">
+                    <i class="fas fa-home me-2"></i> Go to Homepage
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

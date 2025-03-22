@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450">
+  <!-- Background -->
+  <rect width="300" height="450" fill="#2c3440"/>
+  
+  <!-- Film reel icon -->
+  <circle cx="150" cy="150" r="70" fill="#1a1a1a"/>
+  <circle cx="150" cy="150" r="60" fill="#2c3440" stroke="#f5c518" stroke-width="2"/>
+  <circle cx="150" cy="150" r="20" fill="#1a1a1a"/>
+  
+  <!-- Small circles around the reel -->
+  <circle cx="150" cy="80" r="10" fill="#1a1a1a"/>
+  <circle cx="220" cy="150" r="10" fill="#1a1a1a"/>
+  <circle cx="150" cy="220" r="10" fill="#1a1a1a"/>
+  <circle cx="80" cy="150" r="10" fill="#1a1a1a"/>
+  <circle cx="195" cy="105" r="10" fill="#1a1a1a"/>
+  <circle cx="195" cy="195" r="10" fill="#1a1a1a"/>
+  <circle cx="105" cy="195" r="10" fill="#1a1a1a"/>
+  <circle cx="105" cy="105" r="10" fill="#1a1a1a"/>
+  
+  <!-- Text -->
+  <text x="150" y="280" font-family="Arial, sans-serif" font-size="24" text-anchor="middle" fill="#f5c518">No Poster</text>
+  <text x="150" y="310" font-family="Arial, sans-serif" font-size="20" text-anchor="middle" fill="#ffffff">Available</text>
+</svg>

@@ -1,0 +1,239 @@
+<!-- web/templates/series_recommender_landing.html -->
+{% extends 'base.html' %}
+
+{% block title %}TV Series Recommendations - IMDb Recommender{% endblock %}
+
+{% block extra_css %}
+<style>
+    .recommender-hero {
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url('{{ url_for("static", filename="images/hero-bg.jpg") }}');
+        background-size: cover;
+        background-position: center;
+        padding: 4rem 0;
+        color: white;
+        margin-bottom: 3rem;
+    }
+    
+    .search-form {
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .popular-card {
+        transition: transform 0.3s;
+        height: 100%;
+        border: none;
+        overflow: hidden;
+        box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    }
+    
+    .popular-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .popular-card .card-img-wrapper {
+        height: 0;
+        padding-bottom: 150%; /* 2:3 aspect ratio */
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .popular-card .card-img-top {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .popular-card .card-body {
+        padding: 1rem;
+    }
+    
+    .popular-card .card-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .popular-card .rating-star {
+        color: #f5c518;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .section-title {
+        border-left: 4px solid #f5c518;
+        padding-left: 15px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .genre-pill {
+        background-color: #2c3440;
+        color: white;
+        font-size: 0.8rem;
+        border-radius: 12px;
+        padding: 0.2rem 0.6rem;
+        margin-right: 0.3rem;
+        margin-bottom: 0.3rem;
+        display: inline-block;
+    }
+    
+    .how-it-works {
+        background-color: #f8f9fa;
+        padding: 3rem 0;
+        margin: 3rem 0;
+    }
+    
+    .step-card {
+        text-align: center;
+        padding: 1.5rem;
+    }
+    
+    .step-number {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        line-height: 40px;
+        border-radius: 50%;
+        background-color: #f5c518;
+        color: #000;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+    
+    .step-icon {
+        font-size: 2.5rem;
+        color: #f5c518;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section with Search -->
+<section class="recommender-hero">
+    <div class="container text-center">
+        <h1 class="display-4 mb-4">Find Your Next Binge-Worthy Show</h1>
+        <p class="lead mb-5">Enter a TV show title below to get personalized recommendations</p>
+        
+        <div class="search-form">
+            <form action="{{ url_for('recommender.search') }}" method="get">
+                <input type="hidden" name="category" value="series">
+                <div class="input-group input-group-lg">
+                    <input type="text" class="form-control" name="query" placeholder="Search for a TV show..." required>
+                    <button class="btn btn-warning" type="submit">
+                        <i class="fas fa-search me-2"></i> Find TV Shows
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="how-it-works">
+    <div class="container">
+        <h2 class="text-center mb-5">How Our TV Show Recommender Works</h2>
+        
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>Search</h3>
+                    <p>Find your favorite TV show or one you've enjoyed recently</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-icon">
+                        <i class="fas fa-magic"></i>
+                    </div>
+                    <h3>Analyze</h3>
+                    <p>Our AI analyzes content, genre, style, ratings, and more</p>
+                </div>
+            </div>
+            
+            <div class="col-md-4 mb-4">
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-icon">
+                        <i class="fas fa-tv"></i>
+                    </div>
+                    <h3>Discover</h3>
+                    <p>Get personalized recommendations tailored to your taste</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Popular TV Shows Section -->
+<section class="mb-5">
+    <div class="container">
+        <h2 class="section-title">Popular TV Shows</h2>
+        <p class="mb-4">Not sure where to start? Check out these highly-rated TV shows:</p>
+        
+        <div class="row">
+            {% if popular_series %}
+                {% for series in popular_series %}
+                <div class="col-md-4 col-sm-6 mb-4">
+                    <div class="card popular-card">
+                        <div class="card-img-wrapper">
+                            {% if series.poster_path %}
+                                <img src="https://image.tmdb.org/t/p/w500{{ series.poster_path }}" class="card-img-top" alt="{{ series.title }}">
+                            {% else %}
+                                <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="card-img-top" alt="{{ series.title }}">
+                            {% endif %}
+                        </div>
+                        
+                        <div class="card-body">
+                            <h5 class="card-title" title="{{ series.title }}">{{ series.title }}</h5>
+                            <span class="rating-star">
+                                <i class="fas fa-star"></i> {{ series.vote_average|round(1) }}
+                            </span>
+                            <div class="mb-3">
+                                {% for genre in series.genres[:2] %}
+                                <span class="genre-pill">{{ genre }}</span>
+                                {% endfor %}
+                            </div>
+                            <a href="{{ url_for('recommender.series_detail', series_id=series.id) }}" class="btn btn-sm btn-warning w-100">
+                                <i class="fas fa-tv me-1"></i> View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        No TV series data available. Please check back later.
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Analytics Section -->
+<section class="bg-dark text-white py-5">
+    <div class="container text-center">
+        <h2 class="mb-4">Looking for data-driven insights?</h2>
+        <p class="lead mb-4">Explore our TV Series Analysis Dashboard for trends, ratings, and genre statistics</p>
+        <a href="{{ url_for('analysis.series_analysis') }}" class="btn btn-warning btn-lg">
+            <i class="fas fa-chart-bar me-2"></i> TV Series Analysis
+        </a>
+    </div>
+</section>
+{% endblock %}

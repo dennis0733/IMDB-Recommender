@@ -1,0 +1,314 @@
+<!-- web/templates/series_recommender.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ series.name }} - TV Series Recommendations{% endblock %}
+
+{% block extra_css %}
+<style>
+    .series-backdrop {
+        background: linear-gradient(rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.8)), 
+                    url('https://image.tmdb.org/t/p/original{{ series.backdrop_path }}');
+        background-size: cover;
+        background-position: center;
+        color: white;
+        padding: 3rem 0;
+    }
+    
+    .series-poster {
+        width: 100%;
+        border-radius: 4px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    }
+    
+    .series-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .series-year {
+        font-size: 1.25rem;
+        color: #aaa;
+        margin-bottom: 1rem;
+    }
+    
+    .rating-large {
+        font-size: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    
+    .rating-star {
+        color: #f5c518;
+    }
+    
+    .genre-pill {
+        background-color: #3a3f47;
+        color: white;
+        font-size: 0.9rem;
+        border-radius: 20px;
+        padding: 0.3rem 0.8rem;
+        margin-right: 0.5rem;
+        margin-bottom: 0.5rem;
+        display: inline-block;
+    }
+    
+    .series-info {
+        margin-bottom: 1.5rem;
+    }
+    
+    .info-label {
+        font-weight: 600;
+        color: #aaa;
+    }
+    
+    .recommendation-card {
+        transition: transform 0.3s;
+        height: 100%;
+    }
+    
+    .recommendation-card:hover {
+        transform: scale(1.03);
+    }
+    
+    .recommendation-poster {
+        height: 300px;
+        object-fit: cover;
+    }
+    
+    .section-title {
+        border-left: 4px solid #f5c518;
+        padding-left: 15px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .similar-section {
+        background-color: #f8f9fa;
+        padding: 3rem 0;
+    }
+    
+    .network-logo {
+        height: 30px;
+        margin-right: 10px;
+        background-color: white;
+        padding: 2px;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Series Details Section -->
+<section class="series-backdrop">
+    <div class="container">
+        <div class="row">
+            <!-- Series Poster -->
+            <div class="col-md-4 mb-4 mb-md-0">
+                {% if series.poster_path %}
+                    <img src="https://image.tmdb.org/t/p/w500{{ series.poster_path }}" class="series-poster" alt="{{ series.name }}">
+                {% else %}
+                    <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="series-poster" alt="{{ series.name }}">
+                {% endif %}
+            </div>
+            
+            <!-- Series Details -->
+            <div class="col-md-8">
+                <h1 class="series-title">{{ series.name }}</h1>
+                
+                <div class="series-year">
+                    {% if series.first_air_date %}
+                        {{ series.first_air_date[:4] }}
+                    {% elif series.start_year %}
+                        {{ series.start_year }}
+                    {% endif %}
+                    
+                    {% if series.last_air_date and series.status == 'Ended' %}
+                        - {{ series.last_air_date[:4] }}
+                    {% endif %}
+                    
+                    {% if series.episode_run_time %}
+                        <span class="mx-2">•</span>
+                        {{ series.episode_run_time }} min
+                    {% endif %}
+                </div>
+                
+                <div class="rating-large mb-3">
+                    <span class="rating-star">
+                        <i class="fas fa-star"></i> {{ series.vote_average|round(1) }}/10
+                    </span>
+                    <span class="ms-2">({{ series.vote_count }} votes)</span>
+                </div>
+                
+                <div class="mb-4">
+                    {% for genre in series.genre_names %}
+                        <span class="genre-pill">{{ genre }}</span>
+                    {% endfor %}
+                </div>
+                
+                {% if series.overview %}
+                <div class="series-overview mb-4">
+                    <p>{{ series.overview }}</p>
+                </div>
+                {% endif %}
+                
+                <div class="row series-info">
+                    {% if series.number_of_seasons %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Seasons:</span> {{ series.number_of_seasons }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if series.number_of_episodes %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Episodes:</span> {{ series.number_of_episodes }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if series.status %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Status:</span> {{ series.status }}
+                    </div>
+                    {% endif %}
+                    
+                    {% set language_map = {
+                        "en": "English",
+                        "fr": "French",
+                        "es": "Spanish",
+                        "de": "German",
+                        "it": "Italian",
+                        "tr": "Turkish",
+                        "ko": "Korean",
+                        "ja": "Japanese"
+                    } %}
+                    
+
+                    {% if series.original_language %}
+                        <div class="col-md-6 mb-2">
+                            <span class="info-label">Language:</span> 
+                                {{ language_map.get(series.original_language, series.original_language) }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="mb-3">
+                        <span class="info-label">Networks:</span>
+                        {% if series.networks is string %}
+                            {{ series.networks }}
+                        {% elif series.networks is mapping %}
+                            {% for key, network in series.networks.items() if key != '_id' %}
+                                {% if network is mapping and 'name' in network %}
+                                    {{ network.name }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    {{ network }}{% if not loop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% elif series.networks is iterable and series.networks is not string %}
+                            {% for network in series.networks %}
+                                {% if network is mapping and 'name' in network %}
+                                    {{ network.name }}{% if not loop.last %}, {% endif %}
+                                {% else %}
+                                    {{ network }}{% if not loop.last %}, {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Unknown
+                        {% endif %}
+                    </div>
+                    
+                    {% if series.popularity %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Popularity:</span> {{ series.popularity|round(1) }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if series.type %}
+                    <div class="col-md-6 mb-2">
+                        <span class="info-label">Type:</span> {{ series.type }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Similar Series Section -->
+<section class="similar-section">
+    <div class="container">
+        <h2 class="section-title">Recommended TV Shows</h2>
+        
+        {% if recommendations %}
+            <div class="row">
+                {% for series in recommendations %}
+                <div class="col-md-4 col-sm-6 mb-4">
+                    <div class="card recommendation-card shadow-sm">
+                        {% if series.poster_path %}
+                            <img src="https://image.tmdb.org/t/p/w500{{ series.poster_path }}" class="card-img-top recommendation-poster" alt="{{ series.name }}">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='images/no-poster.jpg') }}" class="card-img-top recommendation-poster" alt="{{ series.name }}">
+                        {% endif %}
+                        
+                        <div class="card-body">
+                            <h5 class="card-title">{{ series.name }}</h5>
+                            <div class="mb-2">
+                                <span class="rating-star">
+                                    <i class="fas fa-star"></i> {{ series.vote_average|round(1) }}
+                                </span>
+                            </div>
+                            <div class="mb-3">
+                                {% for genre in series.genre_names[:3] %}
+                                <span class="genre-pill">{{ genre }}</span>
+                                {% endfor %}
+                            </div>
+                            <a href="{{ url_for('recommender.series_detail', series_id=series.id) }}" class="btn btn-sm btn-warning">
+                                <i class="fas fa-tv me-1"></i> View Details
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No recommendations available for this TV show.
+            </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- More Content Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <h3 class="mb-3">Explore More</h3>
+                <div class="list-group">
+                    <a href="{{ url_for('analysis.series_analysis') }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chart-bar me-2"></i> TV Series Analysis Dashboard
+                    </a>
+                    <a href="{{ url_for('recommender.search') }}?query={{ series.name }}&category=series" class="list-group-item list-group-item-action">
+                        <i class="fas fa-search me-2"></i> Find Similar Titles
+                    </a>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <h3 class="mb-3">Popular Genres</h3>
+                <div class="d-flex flex-wrap">
+                    {% set popular_genres = ['Action & Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Kids', 'Mystery', 'News', 'Reality', 'Sci-Fi & Fantasy', 'Soap', 'Talk', 'War & Politics', 'Western'] %}
+                    
+                    {% for genre in popular_genres %}
+                    <a href="{{ url_for('recommender.search') }}?query={{ genre }}&category=series" class="btn btn-sm btn-outline-secondary m-1">
+                        {{ genre }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Any additional JavaScript for the series recommender page
+</script>
+{% endblock %}

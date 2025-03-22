@@ -1,0 +1,74 @@
+IMDB_Recommender/
+│
+├── data/
+│   ├── raw_data/              # Your existing JSON files
+│   │   ├── movies.json
+│   │   ├── tv_series.json
+│   │   ├── detailed_movies.json
+│   │   ├── detailed_series.json
+│   │   ├── movie_genres.json
+│   │   └── tv_genres.json
+│   │
+│   └── processed/             # Data after processing
+│       ├── movies_features.pkl
+│       ├── series_features.pkl
+│       └── similarity_matrices/
+│
+├── notebooks/
+│   ├── 01_data_exploration.ipynb
+│   ├── 02_movie_analysis.ipynb
+│   ├── 03_series_analysis.ipynb
+│   ├── 04_movie_recommender.ipynb
+│   ├── 05_series_recommender.ipynb
+│   └── 06_evaluation.ipynb
+│
+├── models/
+│   ├── movie_recommender.joblib
+│   └── series_recommender.joblib
+│
+├── src/
+│   ├── data/
+│   │   ├── __init__.py
+│   │   ├── database.py        # MongoDB connection and operations
+│   │   └── preprocessing.py   # Data cleaning and feature engineering
+│   │
+│   ├── analysis/
+│   │   ├── __init__.py
+│   │   ├── movie_analytics.py
+│   │   └── series_analytics.py
+│   │
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── content_based.py
+│   │   ├── collaborative.py
+│   │   └── hybrid.py
+│   │
+│   └── visualization/
+│       ├── __init__.py
+│       ├── dashboard.py
+│       └── plots.py
+│
+├── web/
+│   ├── app.py                # Flask application
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── analysis.py
+│   │   └── recommender.py
+│   │
+│   ├── static/
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── images/
+│   │
+│   └── templates/
+│       ├── index.html
+│       ├── movie_analysis.html
+│       ├── series_analysis.html
+│       ├── movie_recommender.html
+│       └── series_recommender.html
+│
+├── .env                     # Environment variables
+├── data_collector.py        # Your existing script
+├── mongodb_import.py        # Script to import JSON to MongoDB
+├── requirements.txt
+└── README.md

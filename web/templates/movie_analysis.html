@@ -1,0 +1,662 @@
+{% extends 'base.html' %}
+
+{% block title %}Movie Analysis - IMDb Recommender{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chart-container {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stats-card {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        height: 100%;
+        transition: transform 0.3s;
+    }
+    
+    .stats-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+    
+    .stats-icon {
+        font-size: 2.5rem;
+        color: #f5c518;
+        margin-bottom: 15px;
+    }
+    
+    .stats-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+    }
+    
+    .stats-label {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+    
+    .genre-pill {
+        background-color: #2c3440;
+        color: white;
+        font-size: 0.8rem;
+        border-radius: 12px;
+        padding: 0.2rem 0.6rem;
+        margin-right: 0.3rem;
+        margin-bottom: 0.3rem;
+        display: inline-block;
+    }
+    
+    .rating-star {
+        color: #f5c518;
+    }
+    
+    .section-title {
+        border-left: 4px solid #f5c518;
+        padding-left: 15px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .analysis-intro {
+        background-color: #f8f9fa;
+        padding: 30px 0;
+        margin-bottom: 30px;
+    }
+    
+    .top-movie-img {
+        width: 50px;
+        height: 75px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+    
+    .nav-tabs .nav-link {
+        color: #495057;
+        border: none;
+        border-bottom: 3px solid transparent;
+        padding: 1rem;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #f5c518;
+        border-bottom-color: #f5c518;
+        background-color: transparent;
+    }
+    
+    .nav-tabs .nav-link:hover {
+        border-bottom-color: #f5c518;
+        background-color: rgba(245, 197, 24, 0.1);
+    }
+    
+    .tab-content {
+        padding-top: 30px;
+    }
+    
+    .stat-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    
+    .stat-list li {
+        padding: 12px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .stat-list li:last-child {
+        border-bottom: none;
+    }
+    
+    .stat-list .value {
+        font-weight: 600;
+    }
+    
+    .top-item {
+        display: flex;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .top-item:last-child {
+        border-bottom: none;
+    }
+    
+    .top-item .rank {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: #f5c518;
+        margin-right: 15px;
+        width: 30px;
+        text-align: center;
+    }
+    
+    .top-item .details {
+        flex-grow: 1;
+    }
+    
+    .top-item .title {
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+    
+    .top-item .stat {
+        color: #6c757d;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Analysis Introduction -->
+<section class="analysis-intro">
+    <div class="container">
+        <h1 class="mb-4">Movie Analysis Dashboard</h1>
+        <p class="lead">Explore insights and trends from our movie database. Discover the most popular genres, rating distributions, and more.</p>
+    </div>
+</section>
+
+<!-- Stats Cards -->
+<section class="mb-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="stats-card text-center">
+                    <div class="stats-icon">
+                        <i class="fas fa-film"></i>
+                    </div>
+                    <div class="stats-value">{{ '{:,}'.format(stats.total_movies) }}</div>
+                    <div class="stats-label">Total Movies Analyzed</div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="stats-card text-center">
+                    <div class="stats-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stats-value">{{ stats.avg_rating|round(1) }}</div>
+                    <div class="stats-label">Average Rating</div>
+                </div>
+            </div>
+            
+            <div class="col-md-3 mb-4">
+                <div class="stats-card text-center">
+                    <div class="stats-icon">
+                        <i class="fas fa-tags"></i>
+                    </div>
+                    <div class="stats-value">
+                        {% if stats.top_genres and stats.top_genres|length > 0 %}
+                            {{ stats.top_genres[0] }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                    <div class="stats-label">Most Popular Genre</div>
+                </div>
+            </div>
+            
+            {% if stats.avg_runtime %}
+            <div class="col-md-3 mb-4">
+                <div class="stats-card text-center">
+                    <div class="stats-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stats-value">{{ stats.avg_runtime|round(0)|int }}</div>
+                    <div class="stats-label">Average Runtime (minutes)</div>
+                </div>
+            </div>
+            {% elif stats.median_rating %}
+            <div class="col-md-3 mb-4">
+                <div class="stats-card text-center">
+                    <div class="stats-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="stats-value">{{ stats.median_rating|round(1) }}</div>
+                    <div class="stats-label">Median Rating</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<!-- Main Analysis Tabs -->
+<section>
+    <div class="container">
+        <ul class="nav nav-tabs" id="analysisTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="genres-tab" data-bs-toggle="tab" data-bs-target="#genres" 
+                    type="button" role="tab" aria-controls="genres" aria-selected="true">
+                    <i class="fas fa-tags me-2"></i> Genres
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="ratings-tab" data-bs-toggle="tab" data-bs-target="#ratings" 
+                    type="button" role="tab" aria-controls="ratings" aria-selected="false">
+                    <i class="fas fa-star me-2"></i> Ratings
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="production-tab" data-bs-toggle="tab" data-bs-target="#production" 
+                    type="button" role="tab" aria-controls="production" aria-selected="false">
+                    <i class="fas fa-video me-2"></i> Production
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="language-tab" data-bs-toggle="tab" data-bs-target="#language" 
+                    type="button" role="tab" aria-controls="language" aria-selected="false">
+                    <i class="fas fa-globe me-2"></i> Languages
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="time-tab" data-bs-toggle="tab" data-bs-target="#time" 
+                    type="button" role="tab" aria-controls="time" aria-selected="false">
+                    <i class="fas fa-calendar-alt me-2"></i> Trends
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="top-tab" data-bs-toggle="tab" data-bs-target="#top" 
+                    type="button" role="tab" aria-controls="top" aria-selected="false">
+                    <i class="fas fa-trophy me-2"></i> Top Movies
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="analysisTabContent">
+            <!-- Genres Tab -->
+            <div class="tab-pane fade show active" id="genres" role="tabpanel" aria-labelledby="genres-tab">
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Movie Genre Distribution</h3>
+                            {% if plots.genre_distribution %}
+                            <img src="data:image/png;base64,{{ plots.genre_distribution }}" class="img-fluid" alt="Genre Distribution">
+                            {% else %}
+                            <p class="text-muted">No genre distribution data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Top Genres</h3>
+                            {% if stats.top_genres and stats.top_genres|length > 0 %}
+                            <ul class="stat-list">
+                                {% for genre in stats.top_genres %}
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>{{ genre }}</span>
+                                        <a href="{{ url_for('recommender.search') }}?query={{ genre }}&category=movies" class="btn btn-sm btn-warning">
+                                            <i class="fas fa-search"></i> Find
+                                        </a>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <p class="text-muted">No top genres data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if plots.genre_runtime %}
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Movie Runtime by Genre</h3>
+                            <img src="data:image/png;base64,{{ plots.genre_runtime }}" class="img-fluid" alt="Genre Runtime">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plots.genre_roi %}
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Return on Investment by Genre</h3>
+                            <img src="data:image/png;base64,{{ plots.genre_roi }}" class="img-fluid" alt="Genre ROI">
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Ratings Tab -->
+            <div class="tab-pane fade" id="ratings" role="tabpanel" aria-labelledby="ratings-tab">
+                <div class="row">
+                    <div class="col-lg-8 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Rating Distribution</h3>
+                            {% if plots.rating_distribution %}
+                            <img src="data:image/png;base64,{{ plots.rating_distribution }}" class="img-fluid" alt="Rating Distribution">
+                            {% else %}
+                            <p class="text-muted">No rating distribution data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-4 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Rating Statistics</h3>
+                            <ul class="stat-list">
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Average Rating</span>
+                                        <span class="value">{{ stats.avg_rating|round(2) }}</span>
+                                    </div>
+                                </li>
+                                {% if stats.median_rating %}
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Median Rating</span>
+                                        <span class="value">{{ stats.median_rating|round(2) }}</span>
+                                    </div>
+                                </li>
+                                {% endif %}
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Rating Range</span>
+                                        <span class="value">1-10</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Popularity vs. Rating</h3>
+                            {% if plots.popularity_vs_rating %}
+                            <img src="data:image/png;base64,{{ plots.popularity_vs_rating }}" class="img-fluid" alt="Popularity vs Rating">
+                            {% else %}
+                            <p class="text-muted">No popularity vs rating data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Production Tab -->
+            <div class="tab-pane fade" id="production" role="tabpanel" aria-labelledby="production-tab">
+                <div class="row">
+                    {% if plots.runtime_distribution %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Runtime Distribution</h3>
+                            <img src="data:image/png;base64,{{ plots.runtime_distribution }}" class="img-fluid" alt="Runtime Distribution">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plots.budget_revenue %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Budget vs. Revenue</h3>
+                            <img src="data:image/png;base64,{{ plots.budget_revenue }}" class="img-fluid" alt="Budget vs Revenue">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.top_production_companies and stats.top_production_companies|length > 0 %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Top Production Companies</h3>
+                            <ul class="stat-list">
+                                {% for company in stats.top_production_companies %}
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>{{ company.name }}</span>
+                                        <span class="value">{{ company.count }} movies</span>
+                                    </div>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.avg_budget and stats.avg_revenue %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Budget & Revenue Statistics</h3>
+                            <ul class="stat-list">
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Average Budget</span>
+                                        <span class="value">${{ '{:,.0f}'.format(stats.avg_budget) }}</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Average Revenue</span>
+                                        <span class="value">${{ '{:,.0f}'.format(stats.avg_revenue) }}</span>
+                                    </div>
+                                </li>
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Average ROI</span>
+                                        <span class="value">{{ '{:,.1f}%'.format((stats.avg_revenue - stats.avg_budget) / stats.avg_budget * 100) if stats.avg_budget > 0 else 'N/A' }}</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Languages Tab -->
+            <div class="tab-pane fade" id="language" role="tabpanel" aria-labelledby="language-tab">
+                <div class="row">
+                    {% if plots.language_distribution %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Top Languages</h3>
+                            <img src="data:image/png;base64,{{ plots.language_distribution }}" class="img-fluid" alt="Language Distribution">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plots.language_pie %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Language Distribution</h3>
+                            <img src="data:image/png;base64,{{ plots.language_pie }}" class="img-fluid" alt="Language Pie Chart">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if plots.title_wordcloud %}
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Movie Titles Word Cloud</h3>
+                            <img src="data:image/png;base64,{{ plots.title_wordcloud }}" class="img-fluid" alt="Title Word Cloud">
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Time Trends Tab -->
+            <div class="tab-pane fade" id="time" role="tabpanel" aria-labelledby="time-tab">
+                <div class="row">
+                    {% if plots.year_distribution %}
+                    <div class="col-12 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Movies by Release Year</h3>
+                            <img src="data:image/png;base64,{{ plots.year_distribution }}" class="img-fluid" alt="Year Distribution">
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.avg_runtime %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Runtime Statistics</h3>
+                            <ul class="stat-list">
+                                <li>
+                                    <div class="d-flex justify-content-between">
+                                        <span>Average Runtime</span>
+                                        <span class="value">{{ stats.avg_runtime|round(0)|int }} minutes</span>
+                                    </div>
+                                </li>
+                                {% if stats.longest_movies and stats.longest_movies|length > 0 %}
+                                <li>
+                                    <div>
+                                        <span>Longest Movie</span>
+                                        <div class="mt-2">
+                                            <strong>{{ stats.longest_movies[0].title }}</strong> ({{ stats.longest_movies[0].runtime }} minutes)
+                                        </div>
+                                    </div>
+                                </li>
+                                {% endif %}
+                                {% if stats.shortest_movies and stats.shortest_movies|length > 0 %}
+                                <li>
+                                    <div>
+                                        <span>Shortest Movie</span>
+                                        <div class="mt-2">
+                                            <strong>{{ stats.shortest_movies[0].title }}</strong> ({{ stats.shortest_movies[0].runtime }} minutes)
+                                        </div>
+                                    </div>
+                                </li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Top Movies Tab -->
+            <div class="tab-pane fade" id="top" role="tabpanel" aria-labelledby="top-tab">
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Highest Rated Movies</h3>
+                            <p class="small text-muted mb-3">Movies with at least 1000 votes, sorted by rating</p>
+                            {% if stats.highest_rated and stats.highest_rated|length > 0 %}
+                                {% for movie in stats.highest_rated %}
+                                <div class="top-item">
+                                    <div class="rank">{{ loop.index }}</div>
+                                    <div class="details">
+                                        <div class="title">{{ movie.title }}</div>
+                                        <div class="stat">
+                                            <span class="rating-star"><i class="fas fa-star"></i> {{ movie.vote_average|round(1) }}/10</span>
+                                            <span class="text-muted ml-2">({{ movie.vote_count }} votes)</span>
+                                        </div>
+                                    </div>
+                                    <a href="/movie/{{ movie.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-thumbs-up"></i>
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No highest rated movie data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Most Popular Movies</h3>
+                            <p class="small text-muted mb-3">Ranked by weighted score (popularity × rating × vote count)</p>
+                            {% if stats.most_popular and stats.most_popular|length > 0 %}
+                                {% for movie in stats.most_popular %}
+                                <div class="top-item">
+                                    <div class="rank">{{ loop.index }}</div>
+                                    <div class="details">
+                                        <div class="title">{{ movie.title }}</div>
+                                        <div class="stat">
+                                            Popularity: {{ movie.popularity|round(1) }}
+                                            <span class="text-muted ml-2">| Rating: {{ movie.vote_average|round(1) }} ({{ movie.vote_count }} votes)</span>
+                                        </div>
+                                    </div>
+                                    <a href="/movie/{{ movie.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                        <i class="fas fa-thumbs-up"></i>
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <p class="text-muted">No most popular movie data available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if stats.highest_budget and stats.highest_budget|length > 0 %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Highest Budget Movies</h3>
+                            {% for movie in stats.highest_budget %}
+                            <div class="top-item">
+                                <div class="rank">{{ loop.index }}</div>
+                                <div class="details">
+                                    <div class="title">{{ movie.title }}</div>
+                                    <div class="stat">
+                                        Budget: ${{ '{:,.0f}'.format(movie.budget) }}
+                                    </div>
+                                </div>
+                                <a href="/movie/{{ movie.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-thumbs-up"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if stats.highest_revenue and stats.highest_revenue|length > 0 %}
+                    <div class="col-lg-6 mb-4">
+                        <div class="chart-container">
+                            <h3 class="mb-3">Highest Revenue Movies</h3>
+                            {% for movie in stats.highest_revenue %}
+                            <div class="top-item">
+                                <div class="rank">{{ loop.index }}</div>
+                                <div class="details">
+                                    <div class="title">{{ movie.title }}</div>
+                                    <div class="stat">
+                                        Revenue: ${{ '{:,.0f}'.format(movie.revenue) }}
+                                    </div>
+                                </div>
+                                <a href="/movie/{{ movie.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                    <i class="fas fa-thumbs-up"></i>
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+<!-- Call-to-Action -->
+<section class="bg-dark text-white py-5 mt-5">
+    <div class="container text-center">
+        <h2 class="mb-4">Find Your Perfect Movie</h2>
+        <p class="lead mb-4">Use our advanced recommendation system to discover movies tailored to your taste.</p>
+        <a href="{{ url_for('recommender.movie_recommender') }}" class="btn btn-warning btn-lg">
+            <i class="fas fa-film me-2"></i> Get Movie Recommendations
+        </a>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Initialize tabs
+    document.addEventListener('DOMContentLoaded', function() {
+        var tabs = document.querySelectorAll('#analysisTab button[data-bs-toggle="tab"]');
+        tabs.forEach(function(tab) {
+            tab.addEventListener('shown.bs.tab', function (event) {
+                // Resize any charts if needed
+                window.dispatchEvent(new Event('resize'));
+            });
+        });
+    });
+</script>
+{% endblock %}
