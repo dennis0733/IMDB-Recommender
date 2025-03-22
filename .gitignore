@@ -33,11 +33,9 @@ ENV/
 
 # Data files
 *.csv
-*.json
 *.pkl
 *.h5
 /data/raw_data/
-/data/processed/
 /data/external/
 
 # Model files
