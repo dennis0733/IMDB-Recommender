@@ -1,7 +1,7 @@
 IMDB_Recommender/
 │
 ├── data/
-│   ├── raw_data/              # Your existing JSON files
+│   ├── raw_data/              
 │   │   ├── movies.json
 │   │   ├── tv_series.json
 │   │   ├── detailed_movies.json
@@ -68,7 +68,7 @@ IMDB_Recommender/
 │       └── series_recommender.html
 │
 ├── .env                     # Environment variables
-├── data_collector.py        # Your existing script
+├── data_collector.py        
 ├── mongodb_import.py        # Script to import JSON to MongoDB
 ├── requirements.txt
 └── README.md
