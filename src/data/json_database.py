@@ -29,6 +29,9 @@ class JSONDatabase:
     def _load_collections(self):
         """Load all JSON files from data directory"""
         try:
+            print(f"Looking for JSON files in: {self.data_dir}")
+            files_in_dir = os.listdir(self.data_dir)
+            print(f"Found files: {files_in_dir}")
             # Load detailed movies
             movies_path = os.path.join(self.data_dir, "imdb_recommender.detailed_movies.json")
             if os.path.exists(movies_path):
