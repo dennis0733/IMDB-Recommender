@@ -278,7 +278,7 @@
                         <div class="chart-container">
                             <h3 class="mb-3">Movie Genre Distribution</h3>
                             {% if plots.genre_distribution %}
-                            <img src="data:image/png;base64,{{ plots.genre_distribution }}" class="img-fluid" alt="Genre Distribution">
+                            <img src="{{ plots.genre_distribution }}" class="img-fluid" alt="Genre Distribution">
                             {% else %}
                             <p class="text-muted">No genre distribution data available</p>
                             {% endif %}
@@ -311,7 +311,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Movie Runtime by Genre</h3>
-                            <img src="data:image/png;base64,{{ plots.genre_runtime }}" class="img-fluid" alt="Genre Runtime">
+                            <img src="{{ plots.genre_runtime }}" class="img-fluid" alt="Genre Runtime">
                         </div>
                     </div>
                     {% endif %}
@@ -320,7 +320,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Return on Investment by Genre</h3>
-                            <img src="data:image/png;base64,{{ plots.genre_roi }}" class="img-fluid" alt="Genre ROI">
+                            <img src="{{ plots.genre_roi }}" class="img-fluid" alt="Genre ROI">
                         </div>
                     </div>
                     {% endif %}
@@ -334,7 +334,7 @@
                         <div class="chart-container">
                             <h3 class="mb-3">Rating Distribution</h3>
                             {% if plots.rating_distribution %}
-                            <img src="data:image/png;base64,{{ plots.rating_distribution }}" class="img-fluid" alt="Rating Distribution">
+                            <img src="{{ plots.rating_distribution }}" class="img-fluid" alt="Rating Distribution">
                             {% else %}
                             <p class="text-muted">No rating distribution data available</p>
                             {% endif %}
@@ -373,7 +373,7 @@
                         <div class="chart-container">
                             <h3 class="mb-3">Popularity vs. Rating</h3>
                             {% if plots.popularity_vs_rating %}
-                            <img src="data:image/png;base64,{{ plots.popularity_vs_rating }}" class="img-fluid" alt="Popularity vs Rating">
+                            <img src="{{ plots.popularity_vs_rating }}" class="img-fluid" alt="Popularity vs Rating">
                             {% else %}
                             <p class="text-muted">No popularity vs rating data available</p>
                             {% endif %}
@@ -389,7 +389,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Runtime Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.runtime_distribution }}" class="img-fluid" alt="Runtime Distribution">
+                            <img src="{{ plots.runtime_distribution }}" class="img-fluid" alt="Runtime Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -398,7 +398,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Budget vs. Revenue</h3>
-                            <img src="data:image/png;base64,{{ plots.budget_revenue }}" class="img-fluid" alt="Budget vs Revenue">
+                            <img src="{{ plots.budget_revenue }}" class="img-fluid" alt="Budget vs Revenue">
                         </div>
                     </div>
                     {% endif %}
@@ -458,7 +458,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Top Languages</h3>
-                            <img src="data:image/png;base64,{{ plots.language_distribution }}" class="img-fluid" alt="Language Distribution">
+                            <img src="{{ plots.language_distribution }}" class="img-fluid" alt="Language Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -467,7 +467,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Language Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.language_pie }}" class="img-fluid" alt="Language Pie Chart">
+                            <img src="{{ plots.language_pie }}" class="img-fluid" alt="Language Pie Chart">
                         </div>
                     </div>
                     {% endif %}
@@ -476,7 +476,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Movie Titles Word Cloud</h3>
-                            <img src="data:image/png;base64,{{ plots.title_wordcloud }}" class="img-fluid" alt="Title Word Cloud">
+                            <img src="{{ plots.title_wordcloud }}" class="img-fluid" alt="Title Word Cloud">
                         </div>
                     </div>
                     {% endif %}
@@ -490,7 +490,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Movies by Release Year</h3>
-                            <img src="data:image/png;base64,{{ plots.year_distribution }}" class="img-fluid" alt="Year Distribution">
+                            <img src="{{ plots.year_distribution }}" class="img-fluid" alt="Year Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -633,6 +633,9 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
+</section>
 
 <!-- Call-to-Action -->
 <section class="bg-dark text-white py-5 mt-5">

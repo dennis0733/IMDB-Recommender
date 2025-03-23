@@ -1,4 +1,3 @@
-<!-- web/templates/series_analysis.html -->
 {% extends 'base.html' %}
 
 {% block title %}TV Series Analysis - IMDb Recommender{% endblock %}
@@ -194,9 +193,11 @@
                         <i class="fas fa-tags"></i>
                     </div>
                     <div class="stats-value">
-                        {% for genre in stats.top_genres[:1] %}
-                            {{ genre }}
-                        {% endfor %}
+                        {% if stats.top_genres and stats.top_genres|length > 0 %}
+                            {{ stats.top_genres[0] }}
+                        {% else %}
+                            N/A
+                        {% endif %}
                     </div>
                     <div class="stats-label">Most Popular Genre</div>
                 </div>
@@ -282,13 +283,18 @@
                     <div class="col-lg-8 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">TV Series Genre Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.genre_distribution }}" class="img-fluid" alt="Genre Distribution">
+                            {% if plots.genre_distribution %}
+                            <img src="{{ plots.genre_distribution }}" class="img-fluid" alt="Genre Distribution">
+                            {% else %}
+                            <p class="text-muted">No genre distribution data available</p>
+                            {% endif %}
                         </div>
                     </div>
                     
                     <div class="col-lg-4 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Top Genres</h3>
+                            {% if stats.top_genres and stats.top_genres|length > 0 %}
                             <ul class="stat-list">
                                 {% for genre in stats.top_genres %}
                                 <li>
@@ -301,6 +307,9 @@
                                 </li>
                                 {% endfor %}
                             </ul>
+                            {% else %}
+                            <p class="text-muted">No top genres data available</p>
+                            {% endif %}
                         </div>
                     </div>
                     
@@ -308,7 +317,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Episode Runtime by Genre</h3>
-                            <img src="data:image/png;base64,{{ plots.genre_runtime }}" class="img-fluid" alt="Genre Runtime">
+                            <img src="{{ plots.genre_runtime }}" class="img-fluid" alt="Genre Runtime">
                         </div>
                     </div>
                     {% endif %}
@@ -321,7 +330,11 @@
                     <div class="col-lg-8 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Rating Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.rating_distribution }}" class="img-fluid" alt="Rating Distribution">
+                            {% if plots.rating_distribution %}
+                            <img src="{{ plots.rating_distribution }}" class="img-fluid" alt="Rating Distribution">
+                            {% else %}
+                            <p class="text-muted">No rating distribution data available</p>
+                            {% endif %}
                         </div>
                     </div>
                     
@@ -356,7 +369,11 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Popularity vs. Rating</h3>
-                            <img src="data:image/png;base64,{{ plots.popularity_vs_rating }}" class="img-fluid" alt="Popularity vs Rating">
+                            {% if plots.popularity_vs_rating %}
+                            <img src="{{ plots.popularity_vs_rating }}" class="img-fluid" alt="Popularity vs Rating">
+                            {% else %}
+                            <p class="text-muted">No popularity vs rating data available</p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -369,7 +386,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Seasons Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.seasons_distribution }}" class="img-fluid" alt="Seasons Distribution">
+                            <img src="{{ plots.seasons_distribution }}" class="img-fluid" alt="Seasons Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -378,7 +395,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Episodes per Season</h3>
-                            <img src="data:image/png;base64,{{ plots.episodes_per_season }}" class="img-fluid" alt="Episodes per Season">
+                            <img src="{{ plots.episodes_per_season }}" class="img-fluid" alt="Episodes per Season">
                         </div>
                     </div>
                     {% endif %}
@@ -387,7 +404,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Episodes vs. Seasons</h3>
-                            <img src="data:image/png;base64,{{ plots.episodes_vs_seasons }}" class="img-fluid" alt="Episodes vs Seasons">
+                            <img src="{{ plots.episodes_vs_seasons }}" class="img-fluid" alt="Episodes vs Seasons">
                         </div>
                     </div>
                     {% endif %}
@@ -396,7 +413,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Episode Runtime Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.runtime_distribution }}" class="img-fluid" alt="Runtime Distribution">
+                            <img src="{{ plots.runtime_distribution }}" class="img-fluid" alt="Runtime Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -405,7 +422,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Series Status</h3>
-                            <img src="data:image/png;base64,{{ plots.status_pie }}" class="img-fluid" alt="Series Status">
+                            <img src="{{ plots.status_pie }}" class="img-fluid" alt="Series Status">
                         </div>
                     </div>
                     {% endif %}
@@ -451,7 +468,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Top Networks</h3>
-                            <img src="data:image/png;base64,{{ plots.network_distribution }}" class="img-fluid" alt="Network Distribution">
+                            <img src="{{ plots.network_distribution }}" class="img-fluid" alt="Network Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -460,7 +477,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Networks by Average Rating</h3>
-                            <img src="data:image/png;base64,{{ plots.network_ratings }}" class="img-fluid" alt="Network Ratings">
+                            <img src="{{ plots.network_ratings }}" class="img-fluid" alt="Network Ratings">
                         </div>
                     </div>
                     {% endif %}
@@ -492,7 +509,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Top Languages</h3>
-                            <img src="data:image/png;base64,{{ plots.language_distribution }}" class="img-fluid" alt="Language Distribution">
+                            <img src="{{ plots.language_distribution }}" class="img-fluid" alt="Language Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -501,7 +518,7 @@
                     <div class="col-lg-6 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Language Distribution</h3>
-                            <img src="data:image/png;base64,{{ plots.language_pie }}" class="img-fluid" alt="Language Pie Chart">
+                            <img src="{{ plots.language_pie }}" class="img-fluid" alt="Language Pie Chart">
                         </div>
                     </div>
                     {% endif %}
@@ -510,7 +527,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Series Titles Word Cloud</h3>
-                            <img src="data:image/png;base64,{{ plots.title_wordcloud }}" class="img-fluid" alt="Title Word Cloud">
+                            <img src="{{ plots.title_wordcloud }}" class="img-fluid" alt="Title Word Cloud">
                         </div>
                     </div>
                     {% endif %}
@@ -524,7 +541,7 @@
                     <div class="col-12 mb-4">
                         <div class="chart-container">
                             <h3 class="mb-3">Series by First Air Year</h3>
-                            <img src="data:image/png;base64,{{ plots.year_distribution }}" class="img-fluid" alt="Year Distribution">
+                            <img src="{{ plots.year_distribution }}" class="img-fluid" alt="Year Distribution">
                         </div>
                     </div>
                     {% endif %}
@@ -549,7 +566,7 @@
                                             <span class="text-muted ml-2">({{ series.vote_count }} votes)</span>
                                         </div>
                                     </div>
-                                    <a href="/series/{{ series.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                    <a href="/series/{{ series.id }}" class="btn btn-sm btn-warning">
                                         <i class="fas fa-thumbs-up"></i>
                                     </a>
                                 </div>
@@ -575,7 +592,7 @@
                                             <span class="text-muted ml-2">| Rating: {{ series.vote_average|round(1) }} ({{ series.vote_count }} votes)</span>
                                         </div>
                                     </div>
-                                    <a href="/series/{{ series.id }}" class="btn btn-sm btn-warning" class="btn btn-sm btn-warning">
+                                    <a href="/series/{{ series.id }}" class="btn btn-sm btn-warning">
                                         <i class="fas fa-thumbs-up"></i>
                                     </a>
                                 </div>
@@ -631,6 +648,9 @@
                     {% endif %}
                 </div>
             </div>
+        </div>
+    </div>
+</section>
 
 <!-- Call-to-Action -->
 <section class="bg-dark text-white py-5 mt-5">
@@ -658,3 +678,4 @@
     });
 </script>
 {% endblock %}
+        
