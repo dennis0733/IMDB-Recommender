@@ -32,7 +32,7 @@ import json
 
 def download_from_s3(bucket_name, s3_file, local_file):
     """
-    Download a file from an S3 bucket
+    Download a file from an S3 bucket with progress reporting and chunking
     """
     print(f"Downloading {s3_file} from S3 bucket {bucket_name}...")
     
@@ -42,7 +42,21 @@ def download_from_s3(bucket_name, s3_file, local_file):
             aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
             aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
         )
-        s3.download_file(bucket_name, s3_file, local_file)
+        
+        # Get file metadata to check size
+        response = s3.head_object(Bucket=bucket_name, Key=s3_file)
+        file_size = response['ContentLength']
+        print(f"File size: {file_size / (1024*1024):.2f} MB")
+        
+        # Create a multipart download with a progress callback
+        with open(local_file, 'wb') as f:
+            s3.download_fileobj(
+                Bucket=bucket_name,
+                Key=s3_file,
+                Fileobj=f,
+                Callback=lambda bytes_transferred: print(f"Downloaded {bytes_transferred/(1024*1024):.2f} MB so far")
+            )
+        
         print(f"Downloaded successfully to {local_file}")
         return True
     except NoCredentialsError:
