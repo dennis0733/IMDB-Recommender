@@ -23,41 +23,97 @@ db_instance = None
 import requests
 import os
 
+import requests
+import os
+import re
+import json
+
+def download_from_google_drive(file_id, destination):
+    """
+    Download a large file from Google Drive
+    Using the approach that handles large files
+    """
+    # First get a confirmation token
+    session = requests.Session()
+    
+    # This is the URL for the Google Drive API
+    url = "https://drive.google.com/uc?export=download&id=" + file_id
+    
+    # First request to get cookies
+    response = session.get(url, stream=True)
+    
+    # If there's a download warning for large files
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            token = value
+            break
+            
+    if token:
+        # Add confirmation token to URL
+        url = url + "&confirm=" + token
+    
+    # Get the file with the token
+    response = session.get(url, stream=True)
+    
+    # Check if we're getting HTML instead of the file
+    content_type = response.headers.get('content-type', '')
+    if 'text/html' in content_type.lower():
+        print(f"Warning: Received HTML instead of file data. Content-Type: {content_type}")
+        print(f"Response preview: {response.content[:500]}")
+        raise Exception("Could not download file: Google Drive returned HTML instead of file data")
+    
+    # Get the content length if available
+    total_size = int(response.headers.get('content-length', 0))
+    if total_size:
+        print(f"Downloading file of size: {total_size / (1024*1024):.2f} MB")
+    
+    # Save the file
+    with open(destination, 'wb') as f:
+        downloaded = 0
+        for chunk in response.iter_content(chunk_size=32768):
+            if chunk:
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total_size:
+                    progress = int((downloaded / total_size) * 100)
+                    print(f"Download progress: {progress}%")
+    
+    # Verify file was downloaded correctly
+    if os.path.exists(destination):
+        size = os.path.getsize(destination)
+        print(f"File downloaded: {size / (1024*1024):.2f} MB")
+        if size < 1000000:  # Less than 1MB
+            print("Warning: Downloaded file is smaller than expected")
+            
+    return destination
+
 def download_models():
-    """Download models from external URLs if they don't exist locally"""
+    """Download models from Google Drive"""
     model_path = current_app.config['MODEL_PATH']
     os.makedirs(model_path, exist_ok=True)
     
     movie_path = os.path.join(model_path, 'movie_recommender.joblib')
     series_path = os.path.join(model_path, 'series_recommender.joblib')
     
+    # File IDs from Google Drive
+    movie_file_id = "1EVx7lvf5tJBZKfZ1eYQJt5HnlwHz8u6R"
+    series_file_id = "1FKArz1pg-u5HXS2o7XMNtKEa8UJWvZnM"
     
-    movie_url = "https://drive.google.com/uc?export=download&id=1EVx7lvf5tJBZKfZ1eYQJt5HnlwHz8u6R"
-    series_url = "https://drive.google.com/uc?export=download&id=1FKArz1pg-u5HXS2o7XMNtKEa8UJWvZnM"
+    # Always try to download fresh copies for now to debug
+    print(f"Downloading movie model to {movie_path}...")
+    try:
+        download_from_google_drive(movie_file_id, movie_path)
+        print(f"Movie model downloaded successfully")
+    except Exception as e:
+        print(f"Error downloading movie model: {str(e)}")
     
-    
-    # Only download if files don't exist or are too small
-    if not os.path.exists(movie_path) or os.path.getsize(movie_path) < 1000000:
-        print(f"Downloading movie model to {movie_path}...")
-        try:
-            r = requests.get(movie_url, stream=True)
-            with open(movie_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("Movie model downloaded successfully")
-        except Exception as e:
-            print(f"Error downloading movie model: {str(e)}")
-    
-    if not os.path.exists(series_path) or os.path.getsize(series_path) < 1000000:
-        print(f"Downloading series model to {series_path}...")
-        try:
-            r = requests.get(series_url, stream=True)
-            with open(series_path, 'wb') as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            print("Series model downloaded successfully")
-        except Exception as e:
-            print(f"Error downloading series model: {str(e)}")
+    print(f"Downloading series model to {series_path}...")
+    try:
+        download_from_google_drive(series_file_id, series_path)
+        print(f"Series model downloaded successfully")
+    except Exception as e:
+        print(f"Error downloading series model: {str(e)}")
 
 def load_models():
     global movie_model, series_model, db_instance
