@@ -4,6 +4,8 @@ import joblib
 import os
 import sys
 import pandas as pd
+import boto3
+from botocore.exceptions import NoCredentialsError
 
 
 # Add the parent directory to sys.path
@@ -28,92 +30,48 @@ import os
 import re
 import json
 
-def download_from_google_drive(file_id, destination):
+def download_from_s3(bucket_name, s3_file, local_file):
     """
-    Download a large file from Google Drive
-    Using the approach that handles large files
+    Download a file from an S3 bucket
     """
-    # First get a confirmation token
-    session = requests.Session()
+    print(f"Downloading {s3_file} from S3 bucket {bucket_name}...")
     
-    # This is the URL for the Google Drive API
-    url = "https://drive.google.com/uc?export=download&id=" + file_id
-    
-    # First request to get cookies
-    response = session.get(url, stream=True)
-    
-    # If there's a download warning for large files
-    token = None
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            token = value
-            break
-            
-    if token:
-        # Add confirmation token to URL
-        url = url + "&confirm=" + token
-    
-    # Get the file with the token
-    response = session.get(url, stream=True)
-    
-    # Check if we're getting HTML instead of the file
-    content_type = response.headers.get('content-type', '')
-    if 'text/html' in content_type.lower():
-        print(f"Warning: Received HTML instead of file data. Content-Type: {content_type}")
-        print(f"Response preview: {response.content[:500]}")
-        raise Exception("Could not download file: Google Drive returned HTML instead of file data")
-    
-    # Get the content length if available
-    total_size = int(response.headers.get('content-length', 0))
-    if total_size:
-        print(f"Downloading file of size: {total_size / (1024*1024):.2f} MB")
-    
-    # Save the file
-    with open(destination, 'wb') as f:
-        downloaded = 0
-        for chunk in response.iter_content(chunk_size=32768):
-            if chunk:
-                f.write(chunk)
-                downloaded += len(chunk)
-                if total_size:
-                    progress = int((downloaded / total_size) * 100)
-                    print(f"Download progress: {progress}%")
-    
-    # Verify file was downloaded correctly
-    if os.path.exists(destination):
-        size = os.path.getsize(destination)
-        print(f"File downloaded: {size / (1024*1024):.2f} MB")
-        if size < 1000000:  # Less than 1MB
-            print("Warning: Downloaded file is smaller than expected")
-            
-    return destination
+    try:
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
+        )
+        s3.download_file(bucket_name, s3_file, local_file)
+        print(f"Downloaded successfully to {local_file}")
+        return True
+    except NoCredentialsError:
+        print("AWS credentials not available")
+        return False
+    except Exception as e:
+        print(f"Error downloading from S3: {str(e)}")
+        return False
 
 def download_models():
-    """Download models from Google Drive"""
+    """Download models from S3"""
     model_path = current_app.config['MODEL_PATH']
     os.makedirs(model_path, exist_ok=True)
     
     movie_path = os.path.join(model_path, 'movie_recommender.joblib')
     series_path = os.path.join(model_path, 'series_recommender.joblib')
     
-    # File IDs from Google Drive
-    movie_file_id = "1EVx7lvf5tJBZKfZ1eYQJt5HnlwHz8u6R"
-    series_file_id = "1FKArz1pg-u5HXS2o7XMNtKEa8UJWvZnM"
+    # S3 bucket name and file paths
+    bucket_name = "your-bucket-name"  # Replace with your bucket name
+    movie_s3_path = "movie_recommender.joblib"
+    series_s3_path = "series_recommender.joblib"
     
-    # Always try to download fresh copies for now to debug
-    print(f"Downloading movie model to {movie_path}...")
-    try:
-        download_from_google_drive(movie_file_id, movie_path)
-        print(f"Movie model downloaded successfully")
-    except Exception as e:
-        print(f"Error downloading movie model: {str(e)}")
+    # Download movie model
+    if not os.path.exists(movie_path) or os.path.getsize(movie_path) < 1000000:
+        download_from_s3(bucket_name, movie_s3_path, movie_path)
     
-    print(f"Downloading series model to {series_path}...")
-    try:
-        download_from_google_drive(series_file_id, series_path)
-        print(f"Series model downloaded successfully")
-    except Exception as e:
-        print(f"Error downloading series model: {str(e)}")
+    # Download series model
+    if not os.path.exists(series_path) or os.path.getsize(series_path) < 1000000:
+        download_from_s3(bucket_name, series_s3_path, series_path)
 
 def load_models():
     global movie_model, series_model, db_instance
