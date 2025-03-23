@@ -13,7 +13,7 @@ class Database:
             load_dotenv(dotenv_path='..\\..\\data\\.env')
             
             # Get MongoDB connection string
-            mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017')
+            mongo_uri = os.getenv('MONGO_URI')
             
             # Connect to MongoDB
             cls._instance.client = MongoClient(mongo_uri)
