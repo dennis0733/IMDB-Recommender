@@ -1,6 +1,6 @@
 # IMDB Movie and Series Recommender
 
-![IMDB Recommender](https://github.com/dennis0733/imdb-recommender/raw/main/web/static/images/logo.png)
+![IMDB Recommender](https://github.com/dennis0733/imdb-recommender/raw/main/web/static/images/imdb-logo.png)
 
 ## 🎬 Overview
 
