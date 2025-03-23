@@ -4,6 +4,11 @@ from dotenv import load_dotenv
 import os
 import logging
 
+import sys
+# Add the web directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)  # Add web directory to path
+
 # Load environment variables
 load_dotenv(dotenv_path="..\\data\\.env")
 
