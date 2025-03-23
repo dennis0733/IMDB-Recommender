@@ -30,124 +30,41 @@ import os
 import re
 import json
 
-def download_from_s3(bucket_name, s3_file, local_file):
-    """
-    Download a file from an S3 bucket with progress reporting and chunking
-    """
-    print(f"Downloading {s3_file} from S3 bucket {bucket_name}...")
-    
-    try:
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY')
-        )
-        
-        # Get file metadata to check size
-        response = s3.head_object(Bucket=bucket_name, Key=s3_file)
-        file_size = response['ContentLength']
-        print(f"File size: {file_size / (1024*1024):.2f} MB")
-        
-        # Create a multipart download with a progress callback
-        with open(local_file, 'wb') as f:
-            s3.download_fileobj(
-                Bucket=bucket_name,
-                Key=s3_file,
-                Fileobj=f,
-                Callback=lambda bytes_transferred: print(f"Downloaded {bytes_transferred/(1024*1024):.2f} MB so far")
-            )
-        
-        print(f"Downloaded successfully to {local_file}")
-        return True
-    except NoCredentialsError:
-        print("AWS credentials not available")
-        return False
-    except Exception as e:
-        print(f"Error downloading from S3: {str(e)}")
-        return False
-
-def download_models():
-    """Download models from S3"""
-    model_path = current_app.config['MODEL_PATH']
-    os.makedirs(model_path, exist_ok=True)
-    
-    movie_path = os.path.join(model_path, 'movie_recommender.joblib')
-    series_path = os.path.join(model_path, 'series_recommender.joblib')
-    
-    # S3 bucket name and file paths
-    bucket_name = "imdb-recommender-models"
-    movie_s3_path = "movie_recommender.joblib"
-    series_s3_path = "series_recommender.joblib"
-    
-    # Download movie model
-    if not os.path.exists(movie_path) or os.path.getsize(movie_path) < 1000000:
-        download_from_s3(bucket_name, movie_s3_path, movie_path)
-    
-    # Download series model
-    if not os.path.exists(series_path) or os.path.getsize(series_path) < 1000000:
-        download_from_s3(bucket_name, series_s3_path, series_path)
 
 def load_models():
     global movie_model, series_model, db_instance
     try:
         model_path = current_app.config['MODEL_PATH']
         print(f"Attempting to load models from: {model_path}")
-
-        # First download models if needed
-        download_models()
         
-        # Check if model files exist before loading
+        # Check if models exist
         movie_path = os.path.join(model_path, 'movie_recommender.joblib')
         series_path = os.path.join(model_path, 'series_recommender.joblib')
         
-        # Movie model loading with detailed error information
-        if not os.path.exists(movie_path):
+        if os.path.exists(movie_path):
+            print(f"Found movie model at {movie_path}, size: {os.path.getsize(movie_path) / (1024*1024):.2f} MB")
+            movie_model = joblib.load(movie_path)
+            print("Movie model loaded successfully")
+        else:
             print(f"ERROR: Movie model file not found at {movie_path}")
+            # Create fallback model if needed
+            
+        if os.path.exists(series_path):
+            print(f"Found series model at {series_path}, size: {os.path.getsize(series_path) / (1024*1024):.2f} MB")
+            series_model = joblib.load(series_path)
+            print("Series model loaded successfully")
         else:
-            print(f"Found movie model at {movie_path}")
-            try:
-                # Get file stats to debug permission issues
-                file_stats = os.stat(movie_path)
-                print(f"Movie file stats: size={file_stats.st_size}, permissions={oct(file_stats.st_mode)}")
-                
-                # Try to actually load the model
-                print("Attempting to load movie model with joblib...")
-                movie_model = joblib.load(movie_path)
-                print("Movie model loaded successfully")
-            except Exception as e:
-                print(f"Detailed error loading movie model: {type(e).__name__}: {str(e)}")
-                import traceback
-                traceback.print_exc()
-                
-        # Series model loading with detailed error information
-        if not os.path.exists(series_path):
             print(f"ERROR: Series model file not found at {series_path}")
-        else:
-            print(f"Found series model at {series_path}")
-            try:
-                # Get file stats to debug permission issues
-                file_stats = os.stat(series_path)
-                print(f"Series file stats: size={file_stats.st_size}, permissions={oct(file_stats.st_mode)}")
-                
-                # Try to actually load the model
-                print("Attempting to load series model with joblib...")
-                series_model = joblib.load(series_path)
-                print("Series model loaded successfully")
-            except Exception as e:
-                print(f"Detailed error loading series model: {type(e).__name__}: {str(e)}")
-                import traceback
-                traceback.print_exc()
+            # Create fallback model if needed
         
-        # Initialize MongoDB connection using your Database class
+        # Initialize MongoDB connection
         try:
             db_instance = Database()
             print("MongoDB connection established")
         except Exception as e:
-            print(f"Error connecting to MongoDB: {e}")
+            print(f"Error connecting to MongoDB: {str(e)}")
     except Exception as e:
-        print(f"Error in load_models function: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"Error loading recommendation models: {str(e)}")
 
 # Use before_request instead of before_app_first_request
 @recommender_bp.before_request
