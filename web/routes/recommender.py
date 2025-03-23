@@ -20,11 +20,52 @@ movie_model = None
 series_model = None
 db_instance = None
 
+import requests
+import os
+
+def download_models():
+    """Download models from external URLs if they don't exist locally"""
+    model_path = current_app.config['MODEL_PATH']
+    os.makedirs(model_path, exist_ok=True)
+    
+    movie_path = os.path.join(model_path, 'movie_recommender.joblib')
+    series_path = os.path.join(model_path, 'series_recommender.joblib')
+    
+    # Replace these URLs with your actual direct download links
+    movie_url = "https://drive.google.com/file/d/1EVx7lvf5tJBZKfZ1eYQJt5HnlwHz8u6R/view?usp=sharing"
+    series_url = "https://drive.google.com/file/d/1FKArz1pg-u5HXS2o7XMNtKEa8UJWvZnM/view?usp=sharing"
+    
+    # Only download if files don't exist or are too small
+    if not os.path.exists(movie_path) or os.path.getsize(movie_path) < 1000000:
+        print(f"Downloading movie model to {movie_path}...")
+        try:
+            r = requests.get(movie_url, stream=True)
+            with open(movie_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("Movie model downloaded successfully")
+        except Exception as e:
+            print(f"Error downloading movie model: {str(e)}")
+    
+    if not os.path.exists(series_path) or os.path.getsize(series_path) < 1000000:
+        print(f"Downloading series model to {series_path}...")
+        try:
+            r = requests.get(series_url, stream=True)
+            with open(series_path, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            print("Series model downloaded successfully")
+        except Exception as e:
+            print(f"Error downloading series model: {str(e)}")
+
 def load_models():
     global movie_model, series_model, db_instance
     try:
         model_path = current_app.config['MODEL_PATH']
         print(f"Attempting to load models from: {model_path}")
+
+        # First download models if needed
+        download_models()
         
         # Check if model files exist before loading
         movie_path = os.path.join(model_path, 'movie_recommender.joblib')
