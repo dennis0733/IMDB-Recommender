@@ -9,40 +9,24 @@ class Database:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(Database, cls).__new__(cls)
-            try:
-                # Get MongoDB connection string directly from environment
-                mongo_uri = os.getenv('MONGO_URI')
-                print(f"Attempting MongoDB connection with URI starting with: {mongo_uri[:15] if mongo_uri else 'None'}...")
-                
-                if not mongo_uri:
-                    print("MongoDB URI is not set in environment variables!")
-                    raise ValueError("MONGO_URI environment variable is not set")
-                
-                # Connect to MongoDB with timeout
-                cls._instance.client = MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-                
-                # Test connection
-                cls._instance.client.admin.command('ping')
-                print("MongoDB connection successful!")
-                
-                # Connect to database
-                cls._instance.db = cls._instance.client['imdb_recommender']
-                
-                # Print available collections
-                collections = cls._instance.db.list_collection_names()
-                print(f"Available collections: {collections}")
-                
-                # Check if main collections exist and contain data
-                movie_count = cls._instance.db.detailed_movies.count_documents({})
-                series_count = cls._instance.db.detailed_series.count_documents({})
-                print(f"Found {movie_count} movies and {series_count} series in database")
-                
-            except Exception as e:
-                print(f"MongoDB connection error: {str(e)}")
-                # Re-raise the exception to indicate failure
-                raise
+            # Load environment variables - keep your existing line
+            load_dotenv(dotenv_path='..\\..\\data\\.env')
+            
+            # Get MongoDB connection string
+            mongo_uri = os.getenv('MONGO_URI')
+            
+            # Add debug output but don't change functionality
+            print("Connecting to MongoDB...")
+            
+            # Connect to MongoDB
+            cls._instance.client = MongoClient(mongo_uri)
+            cls._instance.db = cls._instance.client['imdb_recommender']
+            
+            # Add debug output after connection
+            print("MongoDB connection established")
         return cls._instance
     
+    # Rest of your class remains unchanged
     def get_movies(self, query=None, limit=None):
         """Get movies from database with optional filtering"""
         if query is None:

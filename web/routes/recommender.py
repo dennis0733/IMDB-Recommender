@@ -5,6 +5,9 @@ import os
 import sys
 import pandas as pd
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)  # Add web directory to path
+
 # Add the parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
