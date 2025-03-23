@@ -61,7 +61,7 @@ def download_models():
     series_path = os.path.join(model_path, 'series_recommender.joblib')
     
     # S3 bucket name and file paths
-    bucket_name = "your-bucket-name"  # Replace with your bucket name
+    bucket_name = "imdb-recommender-models"
     movie_s3_path = "movie_recommender.joblib"
     series_s3_path = "series_recommender.joblib"
     
