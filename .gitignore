@@ -34,7 +34,6 @@ ENV/
 # Data files
 *.csv
 *.pkl
-*.joblib
 *.h5
 /data/raw_data/
 data/processed/*.json
@@ -42,7 +41,6 @@ data/processed/*.json
 
 # Model files
 /models/*.pkl
-/models/*.joblib
 /models/*.h5
 cosine_sim*.pkl
 
