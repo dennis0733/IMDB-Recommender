@@ -26,8 +26,8 @@ def create_app():
         app.logger.addHandler(file_handler)
     
     # Register blueprints
-    from routes.analysis import analysis_bp
-    from routes.recommender import recommender_bp
+    from web.routes.analysis import analysis_bp
+    from web.routes.recommender import recommender_bp
     
     app.register_blueprint(analysis_bp)
     app.register_blueprint(recommender_bp)
