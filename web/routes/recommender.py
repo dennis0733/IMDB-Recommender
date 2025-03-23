@@ -5,8 +5,6 @@ import os
 import sys
 import pandas as pd
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(current_dir)  # Add web directory to path
 
 # Add the parent directory to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -26,8 +24,26 @@ def load_models():
     global movie_model, series_model, db_instance
     try:
         model_path = current_app.config['MODEL_PATH']
-        movie_model = joblib.load(os.path.join(model_path, 'movie_recommender.joblib'))
-        series_model = joblib.load(os.path.join(model_path, 'series_recommender.joblib'))
+        print(f"Attempting to load models from: {model_path}")
+
+        # Check if model files exist before loading
+        movie_path = os.path.join(model_path, 'movie_recommender.joblib')
+        series_path = os.path.join(model_path, 'series_recommender.joblib')
+
+        if not os.path.exists(movie_path):
+            print(f"ERROR: Movie model file not found at {movie_path}")
+        else:
+            print(f"Found movie model at {movie_path}")
+            movie_model = joblib.load(movie_path)
+            print("Movie model loaded successfully")
+            
+        if not os.path.exists(series_path):
+            print(f"ERROR: Series model file not found at {series_path}")
+        else:
+            print(f"Found series model at {series_path}")
+            series_model = joblib.load(series_path)
+            print("Series model loaded successfully")
+
         print("Recommendation models loaded successfully")
         
         # Initialize MongoDB connection using your Database class
