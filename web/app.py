@@ -50,6 +50,11 @@ def create_app():
         # Return 500 page
         return render_template('500.html'), 500
     
+    # Load models when app starts
+    with app.app_context():
+        from web.routes.recommender import load_models  # Import your function
+        load_models()
+    
     return app
 
 if __name__ == '__main__':

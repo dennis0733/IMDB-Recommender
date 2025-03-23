@@ -30,17 +30,64 @@ import os
 import re
 import json
 
+def download_from_s3(file_name, local_path):
+    """Download a model file from S3"""
+    try:
+        # Get S3 credentials from environment variables
+        s3_bucket = os.getenv('S3_BUCKET_NAME')
+        aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        
+        if not all([s3_bucket, aws_access_key, aws_secret_key]):
+            print("ERROR: Missing S3 credentials in environment variables")
+            return False
+        
+        # Create S3 client
+        s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key
+        )
+        
+        print(f"Downloading {file_name} from S3 bucket {s3_bucket}...")
+        # Download file
+        s3_client.download_file(
+            s3_bucket,
+            file_name,  # S3 key (path in the bucket)
+            local_path   # Local destination path
+        )
+        print(f"Successfully downloaded {file_name}")
+        return True
+    except Exception as e:
+        print(f"Error downloading from S3: {str(e)}")
+        return False
+
 
 def load_models():
     global movie_model, series_model, db_instance
     try:
-        model_path = "/var/render/service/models"
+        model_path = current_app.config['MODEL_PATH']
+        os.makedirs(model_path, exist_ok=True)
         print(f"Attempting to load models from: {model_path}")
         
-        # Check if models exist
-        movie_path = os.path.join(model_path, 'movie_recommender.joblib')
-        series_path = os.path.join(model_path, 'series_recommender.joblib')
+        # Define model files
+        movie_file = 'movie_recommender.joblib'
+        series_file = 'series_recommender.joblib'
         
+        movie_path = os.path.join(model_path, movie_file)
+        series_path = os.path.join(model_path, series_file)
+        
+        # Check and download movie model if needed
+        if not os.path.exists(movie_path):
+            print(f"Movie model not found locally. Downloading from S3...")
+            download_from_s3(movie_file, movie_path)
+        
+        # Check and download series model if needed
+        if not os.path.exists(series_path):
+            print(f"Series model not found locally. Downloading from S3...")
+            download_from_s3(series_file, series_path)
+        
+        # Load movie model
         if os.path.exists(movie_path):
             print(f"Found movie model at {movie_path}, size: {os.path.getsize(movie_path) / (1024*1024):.2f} MB")
             movie_model = joblib.load(movie_path)
@@ -49,6 +96,7 @@ def load_models():
             print(f"ERROR: Movie model file not found at {movie_path}")
             # Create fallback model if needed
             
+        # Load series model
         if os.path.exists(series_path):
             print(f"Found series model at {series_path}, size: {os.path.getsize(series_path) / (1024*1024):.2f} MB")
             series_model = joblib.load(series_path)
@@ -56,6 +104,9 @@ def load_models():
         else:
             print(f"ERROR: Series model file not found at {series_path}")
             # Create fallback model if needed
+            
+    except Exception as e:
+        print(f"Error loading models: {str(e)}")
         
         # Initialize MongoDB connection
         try:
