@@ -34,7 +34,7 @@ import json
 def load_models():
     global movie_model, series_model, db_instance
     try:
-        model_path = current_app.config['MODEL_PATH']
+        model_path = "/var/render/service/models"
         print(f"Attempting to load models from: {model_path}")
         
         # Check if models exist
