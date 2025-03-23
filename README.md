@@ -264,4 +264,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 Developed by [Şükrü Deniz Çilek]
 
-[![GitHub stars](https://img.shields.io/github/stars/dennis0733/imdb-recommender?style=social)](https://github.com/yourusername/imdb-recommender)
+[![GitHub stars](https://img.shields.io/github/stars/dennis0733/imdb-recommender?style=social)](https://github.com/dennis0733/imdb-recommender)
