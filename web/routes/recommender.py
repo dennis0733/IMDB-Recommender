@@ -25,26 +25,48 @@ def load_models():
     try:
         model_path = current_app.config['MODEL_PATH']
         print(f"Attempting to load models from: {model_path}")
-
+        
         # Check if model files exist before loading
         movie_path = os.path.join(model_path, 'movie_recommender.joblib')
         series_path = os.path.join(model_path, 'series_recommender.joblib')
-
+        
+        # Movie model loading with detailed error information
         if not os.path.exists(movie_path):
             print(f"ERROR: Movie model file not found at {movie_path}")
         else:
             print(f"Found movie model at {movie_path}")
-            movie_model = joblib.load(movie_path)
-            print("Movie model loaded successfully")
-            
+            try:
+                # Get file stats to debug permission issues
+                file_stats = os.stat(movie_path)
+                print(f"Movie file stats: size={file_stats.st_size}, permissions={oct(file_stats.st_mode)}")
+                
+                # Try to actually load the model
+                print("Attempting to load movie model with joblib...")
+                movie_model = joblib.load(movie_path)
+                print("Movie model loaded successfully")
+            except Exception as e:
+                print(f"Detailed error loading movie model: {type(e).__name__}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+                
+        # Series model loading with detailed error information
         if not os.path.exists(series_path):
             print(f"ERROR: Series model file not found at {series_path}")
         else:
             print(f"Found series model at {series_path}")
-            series_model = joblib.load(series_path)
-            print("Series model loaded successfully")
-
-        print("Recommendation models loaded successfully")
+            try:
+                # Get file stats to debug permission issues
+                file_stats = os.stat(series_path)
+                print(f"Series file stats: size={file_stats.st_size}, permissions={oct(file_stats.st_mode)}")
+                
+                # Try to actually load the model
+                print("Attempting to load series model with joblib...")
+                series_model = joblib.load(series_path)
+                print("Series model loaded successfully")
+            except Exception as e:
+                print(f"Detailed error loading series model: {type(e).__name__}: {str(e)}")
+                import traceback
+                traceback.print_exc()
         
         # Initialize MongoDB connection using your Database class
         try:
@@ -53,7 +75,9 @@ def load_models():
         except Exception as e:
             print(f"Error connecting to MongoDB: {e}")
     except Exception as e:
-        print(f"Error loading recommendation models: {e}")
+        print(f"Error in load_models function: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 # Use before_request instead of before_app_first_request
 @recommender_bp.before_request
